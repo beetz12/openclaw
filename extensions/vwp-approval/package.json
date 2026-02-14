@@ -1,0 +1,15 @@
+{
+  "name": "@openclaw/vwp-approval",
+  "version": "2026.2.13",
+  "private": true,
+  "description": "VWP approval queue plugin - intercepts outbound messages for human review",
+  "type": "module",
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
