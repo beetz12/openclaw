@@ -1,0 +1,23 @@
+{
+  "name": "@openclaw/vwp-dashboard",
+  "version": "2026.2.14",
+  "private": true,
+  "description": "VWP Dashboard - mobile-first approval dashboard for SMB owners",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "lit": "^3.3.2"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*",
+    "vite": "7.3.1"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
