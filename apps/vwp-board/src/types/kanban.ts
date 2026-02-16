@@ -107,6 +107,22 @@ export interface AgentInfo {
   error: string | null;
 }
 
+// --- Tool run types (Workspace Tools Integration) ---
+
+export type ToolRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export interface ToolRunInfo {
+  runId: string;
+  toolName: string;
+  toolLabel: string;
+  args: Record<string, string>;
+  status: ToolRunStatus;
+  startedAt: number;
+  completedAt: number | null;
+  exitCode: number | null;
+  error: string | null;
+}
+
 export interface BoardState {
   columns: Record<KanbanColumnId, KanbanTask[]>;
   loading: boolean;

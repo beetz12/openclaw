@@ -38,7 +38,12 @@ export type KanbanSSEEvent =
   | { type: "agent_connected"; agent: AgentInfo }
   | { type: "agent_disconnected"; agentId: string }
   | { type: "agent_log"; agentId: string; taskId: string; message: string; timestamp: number }
-  | { type: "gateway_status"; connected: boolean };
+  | { type: "gateway_status"; connected: boolean }
+  | { type: "tool_run_started"; run: { runId: string; toolName: string; toolLabel: string; status: string; startedAt: number } }
+  | { type: "tool_run_output"; runId: string; stream: "stdout" | "stderr"; chunk: string }
+  | { type: "tool_run_completed"; runId: string; toolName: string; exitCode: number; durationMs: number }
+  | { type: "tool_run_failed"; runId: string; toolName: string; error: string }
+  | { type: "tool_run_cancelled"; runId: string; toolName: string };
 
 const EMPTY_COLUMNS: Record<KanbanColumnId, KanbanTask[]> = {
   backlog: [],
@@ -61,6 +66,11 @@ export interface BoardStore {
   gatewayConnected: boolean;
   agentPanelOpen: boolean;
   setAgentPanelOpen: (open: boolean) => void;
+
+  // Tool state (Workspace Tools Integration)
+  toolRuns: import("@/types/kanban").ToolRunInfo[];
+  toolOutputs: Record<string, string>; // runId → accumulated output
+  fetchToolRuns: () => Promise<void>;
 
   // Actions
   fetchBoard: () => Promise<void>;
@@ -120,7 +130,17 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   agents: [],
   gatewayConnected: false,
   agentPanelOpen: false,
+  toolRuns: [],
+  toolOutputs: {},
   setAgentPanelOpen: (open) => set({ agentPanelOpen: open }),
+  fetchToolRuns: async () => {
+    try {
+      const data = await kanbanApi.listToolRuns();
+      set({ toolRuns: [...data.active, ...data.completed] });
+    } catch {
+      // Silently fail — tools may not be available
+    }
+  },
 
   fetchBoard: async () => {
     set({ loading: true, error: null });
@@ -316,6 +336,56 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case "gateway_status":
         set({ gatewayConnected: event.connected });
         break;
+      case "tool_run_started": {
+        const run = (event as any).run;
+        set((state) => ({
+          toolRuns: [...state.toolRuns.filter((r) => r.runId !== run.runId), run],
+        }));
+        break;
+      }
+      case "tool_run_output": {
+        const { runId, chunk } = event as any;
+        set((state) => ({
+          toolOutputs: {
+            ...state.toolOutputs,
+            [runId]: (state.toolOutputs[runId] ?? "") + chunk,
+          },
+        }));
+        break;
+      }
+      case "tool_run_completed": {
+        const { runId, exitCode, durationMs } = event as any;
+        set((state) => ({
+          toolRuns: state.toolRuns.map((r) =>
+            r.runId === runId
+              ? { ...r, status: "completed" as const, exitCode, completedAt: Date.now() }
+              : r,
+          ),
+        }));
+        break;
+      }
+      case "tool_run_failed": {
+        const { runId, error } = event as any;
+        set((state) => ({
+          toolRuns: state.toolRuns.map((r) =>
+            r.runId === runId
+              ? { ...r, status: "failed" as const, error, completedAt: Date.now() }
+              : r,
+          ),
+        }));
+        break;
+      }
+      case "tool_run_cancelled": {
+        const { runId } = event as any;
+        set((state) => ({
+          toolRuns: state.toolRuns.map((r) =>
+            r.runId === runId
+              ? { ...r, status: "cancelled" as const, completedAt: Date.now() }
+              : r,
+          ),
+        }));
+        break;
+      }
     }
   },
 }));
