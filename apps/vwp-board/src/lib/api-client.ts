@@ -3,7 +3,6 @@
 import type {
   KanbanColumnId,
   KanbanTask,
-  KanbanSubtask,
   BoardState,
 } from "@/types/kanban";
 

@@ -247,13 +247,13 @@ export default function ToolsPage() {
         const data = await kanbanApi.listTools();
         setTools(data.tools);
         await fetchToolRuns();
-      } catch (err) {
+      } catch {
         setError("Failed to load tools. Is the dispatch plugin running?");
       } finally {
         setLoading(false);
       }
     }
-    load();
+    void load();
   }, [fetchToolRuns]);
 
   const handleRun = useCallback(
