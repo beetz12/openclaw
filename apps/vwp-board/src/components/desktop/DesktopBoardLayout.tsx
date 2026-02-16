@@ -60,9 +60,7 @@ export function DesktopBoardLayout({
         onCancel={onCancel}
       />
       {agentPanelOpen && (
-        <AgentPanel onTaskClick={(taskId) => {
-          handleTaskClick(taskId);
-        }} />
+        <AgentPanel onTaskClick={handleTaskClick} />
       )}
     </div>
   );
