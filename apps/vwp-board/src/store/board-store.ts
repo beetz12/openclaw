@@ -54,6 +54,7 @@ export interface BoardStore {
   loading: boolean;
   error: string | null;
   sseConnected: boolean;
+  sseStale: boolean;
 
   // Actions
   fetchBoard: () => Promise<void>;
@@ -68,6 +69,7 @@ export interface BoardStore {
 
   // SSE
   setSseConnected: (connected: boolean) => void;
+  setSseStale: (stale: boolean) => void;
   handleSSEEvent: (event: KanbanSSEEvent) => void;
 }
 
@@ -108,6 +110,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   loading: false,
   error: null,
   sseConnected: false,
+  sseStale: false,
 
   fetchBoard: async () => {
     set({ loading: true, error: null });
@@ -186,6 +189,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   setSseConnected: (connected) => set({ sseConnected: connected }),
+  setSseStale: (stale) => set({ sseStale: stale }),
 
   handleSSEEvent: (event) => {
     const { columns } = get();
