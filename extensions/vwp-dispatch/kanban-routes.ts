@@ -273,8 +273,7 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
     if (req.method === "GET" && pathname === "/vwp/dispatch/agents") {
       if (!checkAuth(req, res)) return true;
       const agents = agentState?.getAll() ?? [];
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(agents));
+      jsonResponse(res, 200, agents);
       return true;
     }
 
@@ -283,8 +282,7 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
     if (req.method === "GET" && agentLogsMatch) {
       if (!checkAuth(req, res)) return true;
       const logs = agentState?.getLogs(agentLogsMatch[1]) ?? [];
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(logs));
+      jsonResponse(res, 200, logs);
       return true;
     }
 
