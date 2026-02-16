@@ -38,8 +38,7 @@ function BoardContent() {
     confirmTask,
   } = useBoard();
   const sseStale = useBoardStore((s) => s.sseStale);
-  // gatewayConnected will be added by Task 7 — use false until then
-  const gatewayConnected = false;
+  const gatewayConnected = useBoardStore((s) => s.gatewayConnected);
   const isMobile = useIsMobile();
 
   const handleApprove = useCallback(

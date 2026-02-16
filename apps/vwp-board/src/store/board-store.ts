@@ -56,6 +56,12 @@ export interface BoardStore {
   sseConnected: boolean;
   sseStale: boolean;
 
+  // Agent state (Phase 5A)
+  agents: AgentInfo[];
+  gatewayConnected: boolean;
+  agentPanelOpen: boolean;
+  setAgentPanelOpen: (open: boolean) => void;
+
   // Actions
   fetchBoard: () => Promise<void>;
   moveTask: (
@@ -111,6 +117,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   error: null,
   sseConnected: false,
   sseStale: false,
+  agents: [],
+  gatewayConnected: false,
+  agentPanelOpen: false,
+  setAgentPanelOpen: (open) => set({ agentPanelOpen: open }),
 
   fetchBoard: async () => {
     set({ loading: true, error: null });
@@ -275,6 +285,29 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       case "approval_required":
         // These events are informational / handled by detail views.
         // A full refresh ensures we pick up any side-effects.
+        break;
+
+      case "agent_connected": {
+        const agents = get().agents.filter((a) => a.id !== event.agent.id);
+        set({ agents: [...agents, event.agent] });
+        break;
+      }
+      case "agent_status_changed": {
+        const agents = get().agents.map((a) =>
+          a.id === event.agent.id ? event.agent : a,
+        );
+        set({ agents });
+        break;
+      }
+      case "agent_disconnected": {
+        set({ agents: get().agents.filter((a) => a.id !== event.agentId) });
+        break;
+      }
+      case "agent_log":
+        // Handled by agent panel detail view
+        break;
+      case "gateway_status":
+        set({ gatewayConnected: event.connected });
         break;
     }
   },
