@@ -14,12 +14,25 @@ export class BoardSSEClient {
   private _retryMs = INITIAL_RETRY_MS;
   private _retryTimer: ReturnType<typeof setTimeout> | null = null;
   private _intentionalClose = false;
+  private _lastHeartbeat = 0;
+  private _heartbeatChecker: ReturnType<typeof setInterval> | null = null;
+  private _staleCallbacks = new Set<(stale: boolean) => void>();
 
   get connected(): boolean {
     return (
       typeof EventSource !== "undefined" &&
       this._source?.readyState === EventSource.OPEN
     );
+  }
+
+  get stale(): boolean {
+    if (!this.connected) {return false;}
+    return this._lastHeartbeat > 0 && Date.now() - this._lastHeartbeat > 45_000;
+  }
+
+  onStaleChange(callback: (stale: boolean) => void): () => void {
+    this._staleCallbacks.add(callback);
+    return () => this._staleCallbacks.delete(callback);
   }
 
   connect(baseUrl?: string): void {
@@ -51,6 +64,8 @@ export class BoardSSEClient {
 
     source.onopen = () => {
       this._retryMs = INITIAL_RETRY_MS;
+      this._lastHeartbeat = Date.now();
+      this._startHeartbeatChecker();
     };
 
     source.onerror = () => {
@@ -129,6 +144,10 @@ export class BoardSSEClient {
   }
 
   private _dispatch(ev: MessageEvent): void {
+    // Track any message as heartbeat activity
+    this._lastHeartbeat = Date.now();
+    this._notifyStale(false);
+
     let data: unknown;
     try {
       data = JSON.parse(ev.data as string);
@@ -164,7 +183,30 @@ export class BoardSSEClient {
     }
   }
 
+  private _startHeartbeatChecker(): void {
+    this._stopHeartbeatChecker();
+    this._heartbeatChecker = setInterval(() => {
+      if (this._lastHeartbeat > 0 && Date.now() - this._lastHeartbeat > 45_000) {
+        this._notifyStale(true);
+      }
+    }, 10_000);
+  }
+
+  private _stopHeartbeatChecker(): void {
+    if (this._heartbeatChecker) {
+      clearInterval(this._heartbeatChecker);
+      this._heartbeatChecker = null;
+    }
+  }
+
+  private _notifyStale(stale: boolean): void {
+    for (const cb of this._staleCallbacks) {
+      try { cb(stale); } catch { /* ignore */ }
+    }
+  }
+
   private _cleanup(): void {
+    this._stopHeartbeatChecker();
     if (this._source) {
       this._source.close();
       this._source = null;
