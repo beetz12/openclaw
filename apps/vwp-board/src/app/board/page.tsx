@@ -9,6 +9,7 @@ import { NetworkError } from "@/components/error/NetworkError";
 import { ConnectionIndicator } from "@/components/status/ConnectionIndicator";
 import { MobileTaskList } from "@/components/mobile/MobileTaskList";
 import { DesktopBoardLayout } from "@/components/desktop/DesktopBoardLayout";
+import { AgentPanel } from "@/components/agents/AgentPanel";
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -116,14 +117,18 @@ function BoardContent() {
 
       {/* Board: mobile or desktop */}
       {isMobile ? (
-        <MobileTaskList
-          columns={columns}
-          onRefresh={refresh}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onRetry={handleRetry}
-          onCancel={handleCancel}
-        />
+        <>
+          <MobileTaskList
+            columns={columns}
+            onRefresh={refresh}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onRetry={handleRetry}
+            onCancel={handleCancel}
+          />
+          {/* AgentPanel on mobile uses position:fixed (bottom sheet) */}
+          <AgentPanel />
+        </>
       ) : (
         <div className="flex-1 overflow-hidden">
           <DesktopBoardLayout
