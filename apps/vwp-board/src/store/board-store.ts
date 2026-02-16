@@ -319,3 +319,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     }
   },
 }));
+
+// Expose store on window for E2E testing
+if (typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__boardStore = useBoardStore;
+}
