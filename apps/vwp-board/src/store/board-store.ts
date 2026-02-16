@@ -225,7 +225,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       set({ sseConnected: false, toolRunsStale: true });
     } else {
       set({ sseConnected: true, toolRunsStale: false });
-      get().fetchToolRuns();
+      void get().fetchToolRuns();
     }
   },
   setSseStale: (stale) => set({ sseStale: stale }),
