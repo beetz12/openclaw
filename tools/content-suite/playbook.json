@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "last_updated": "2026-02-15",
+  "platforms": {
+    "x": {
+      "positioning": "High-velocity insight and strong contrarian hooks.",
+      "best_practices": [
+        "Lead with one sharp claim in the first line.",
+        "Use short lines with momentum and curiosity gaps.",
+        "Thread format should escalate to a practical takeaway.",
+        "End with one clear CTA or question."
+      ]
+    },
+    "threads": {
+      "positioning": "Warm, conversational thought leadership with less aggression than X.",
+      "best_practices": [
+        "Use human tone and vulnerability where relevant.",
+        "Keep advice practical and relatable.",
+        "Prioritize clarity over hype language."
+      ]
+    },
+    "linkedin": {
+      "positioning": "Professional storytelling and credibility-driven insights.",
+      "best_practices": [
+        "Open with a tension or hard-earned lesson.",
+        "Use short paragraph cadence ('bro-etry') for readability.",
+        "Tie story to business outcomes and specific actions.",
+        "Close with a discussion question.",
+        "Meta update note: LinkedIn is now prioritizing PDF carousels"
+      ]
+    },
+    "instagram": {
+      "positioning": "Visual-first value with concise, punchy copy.",
+      "best_practices": [
+        "Hook in first sentence of caption.",
+        "Pair educational point with strong visual metaphor.",
+        "Use concise line breaks and 10-30 relevant hashtags."
+      ]
+    },
+    "pinterest": {
+      "positioning": "Search-intent friendly inspiration and how-to utility.",
+      "best_practices": [
+        "Design for saved value (checklists, templates, before/after).",
+        "Use keyword-rich pin descriptions.",
+        "Prioritize evergreen clarity over trends."
+      ]
+    },
+    "tiktok": {
+      "positioning": "Immediate visual hook and narrative movement every few seconds.",
+      "best_practices": [
+        "Hook in 0.5-2 seconds.",
+        "Use pattern interrupts and fast scene progression.",
+        "Keep language simple, direct, and emotionally specific."
+      ]
+    },
+    "youtube_shorts": {
+      "positioning": "Compact educational entertainment with high retention pacing.",
+      "best_practices": [
+        "State payoff early and repeat progress markers.",
+        "Use dense value per second with visual proof.",
+        "End with loop-friendly closing or follow-up teaser."
+      ]
+    },
+    "instagram_reels": {
+      "positioning": "Aesthetic + utility blend with social proof tone.",
+      "best_practices": [
+        "Use clean visual composition and direct on-screen text.",
+        "Keep scenes tight and outcomes tangible.",
+        "Caption should convert attention into comments/saves."
+      ]
+    },
+    "reddit": {
+      "positioning": "Community-native honesty and discussion-first framing.",
+      "best_practices": [
+        "Respect subreddit norms and avoid overt selling.",
+        "Lead with context, ask for feedback, invite disagreement.",
+        "Show practical details, not generic claims."
+      ]
+    },
+    "facebook": {
+      "positioning": "Community conversation with emotional accessibility.",
+      "best_practices": [
+        "Use relatable framing and clear prompts for comments.",
+        "Prioritize stories and practical life/business relevance.",
+        "Ask one direct engagement question."
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "reddit_scout",
+  "label": "Reddit Intelligence",
+  "description": "Research Reddit for pain points, market signals, or general trends on any topic",
+  "category": "research",
+  "entrypoint": "reddit_scout.py",
+  "runtime": "python3",
+  "args_schema": {
+    "topic": { "type": "string", "required": true, "label": "Topic" },
+    "mode": {
+      "type": "enum",
+      "values": ["pain", "market", "general"],
+      "required": true,
+      "label": "Research Mode"
+    },
+    "subreddit": { "type": "string", "required": false, "label": "Subreddit (optional)" }
+  },
+  "env_allowlist": [
+    "REDDIT_CLIENT_ID",
+    "REDDIT_SECRET",
+    "REDDIT_USER_AGENT",
+    "REDDIT_SCRAPER_MODE",
+    "BRAVE_API_KEY",
+    "ANTHROPIC_API_KEY"
+  ],
+  "outputs": ["reports/", "logs/"],
+  "timeout_seconds": 300,
+  "max_output_bytes": 10485760
+}
