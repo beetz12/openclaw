@@ -1,0 +1,15 @@
+{
+  "name": "trend_scout",
+  "label": "Trend Scout",
+  "description": "Discover trending AI/tech topics using Brave Search and Grok analysis",
+  "category": "research",
+  "entrypoint": "trend_scout.py",
+  "runtime": "python3",
+  "args_schema": {
+    "topic": { "type": "string", "required": false, "label": "Topic (optional, defaults to AI)" }
+  },
+  "env_allowlist": ["BRAVE_API_KEY", "XAI_API_KEY", "ANTHROPIC_API_KEY"],
+  "outputs": ["trends.json"],
+  "timeout_seconds": 180,
+  "max_output_bytes": 5242880
+}

@@ -1,0 +1,20 @@
+{
+  "name": "social_alchemist",
+  "label": "Social Alchemist",
+  "description": "Generate omni-channel social media content from a core idea or URL",
+  "category": "content",
+  "entrypoint": "social_alchemist.py",
+  "runtime": "python3",
+  "args_schema": {
+    "input": { "type": "string", "required": true, "label": "Core idea, file path, or URL" },
+    "update_meta": {
+      "type": "string",
+      "required": false,
+      "label": "Platform trend update (optional)"
+    }
+  },
+  "env_allowlist": ["ANTHROPIC_API_KEY"],
+  "outputs": ["campaigns/"],
+  "timeout_seconds": 300,
+  "max_output_bytes": 10485760
+}
