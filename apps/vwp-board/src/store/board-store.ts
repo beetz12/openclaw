@@ -70,6 +70,7 @@ export interface BoardStore {
   // Tool state (Workspace Tools Integration)
   toolRuns: import("@/types/kanban").ToolRunInfo[];
   toolOutputs: Record<string, string>; // runId → accumulated output
+  toolRunsStale: boolean;
   fetchToolRuns: () => Promise<void>;
 
   // Actions
@@ -132,6 +133,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   agentPanelOpen: false,
   toolRuns: [],
   toolOutputs: {},
+  toolRunsStale: false,
   setAgentPanelOpen: (open) => set({ agentPanelOpen: open }),
   fetchToolRuns: async () => {
     try {
@@ -218,7 +220,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     get().fetchBoard();
   },
 
-  setSseConnected: (connected) => set({ sseConnected: connected }),
+  setSseConnected: (connected) => {
+    if (!connected) {
+      set({ sseConnected: false, toolRunsStale: true });
+    } else {
+      set({ sseConnected: true, toolRunsStale: false });
+      get().fetchToolRuns();
+    }
+  },
   setSseStale: (stale) => set({ sseStale: stale }),
 
   handleSSEEvent: (event) => {
