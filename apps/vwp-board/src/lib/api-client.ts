@@ -28,6 +28,7 @@ export interface SubtaskEdit {
 export interface ApiError {
   error: string;
   status: number;
+  code?: string;
 }
 
 export class KanbanApiClient {
@@ -82,13 +83,15 @@ export class KanbanApiClient {
 
     if (!res.ok) {
       let errorMsg = `HTTP ${res.status}`;
+      let errorCode: string | undefined;
       try {
-        const body = (await res.json()) as { error?: string };
+        const body = (await res.json()) as { error?: string; code?: string };
         if (body.error) {errorMsg = body.error;}
+        if (body.code) {errorCode = body.code;}
       } catch {
         // use status text
       }
-      const err: ApiError = { error: errorMsg, status: res.status };
+      const err: ApiError = { error: errorMsg, status: res.status, code: errorCode };
       throw err;
     }
 
@@ -225,7 +228,9 @@ export class KanbanApiClient {
       category: string;
       args_schema: Record<string, { type: string; values?: string[]; required?: boolean; label: string }>;
       runtime: string;
+      timeout_seconds?: number;
     }>;
+    warning?: string;
   }> {
     const url = this._url("/vwp/tools");
     return this._fetch(url);
