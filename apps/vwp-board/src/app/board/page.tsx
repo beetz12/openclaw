@@ -52,7 +52,7 @@ function BoardContent() {
   const handleReject = useCallback(
     async (taskId: string) => {
       await kanbanApi.cancelTask(taskId);
-      refresh();
+      void refresh();
     },
     [refresh],
   );
@@ -68,7 +68,7 @@ function BoardContent() {
   const handleCancel = useCallback(
     async (taskId: string) => {
       await kanbanApi.cancelTask(taskId);
-      refresh();
+      void refresh();
     },
     [refresh],
   );
