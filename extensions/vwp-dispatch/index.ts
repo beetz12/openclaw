@@ -1,4 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import { join } from "node:path";
 import type { TaskRequest } from "./types.js";
 import { ApprovalSSE } from "../vwp-approval/sse.js";
 import { AgentStateManager } from "./agent-state.js";
@@ -21,6 +22,9 @@ import { cleanupOldTasks } from "./task-cleanup.js";
 import { TaskQueue } from "./task-queue.js";
 import { assembleTeam } from "./team-assembler.js";
 import { launchTeam } from "./team-launcher.js";
+import { discoverTools, type LoadedTool } from "./tool-manifest.js";
+import { createToolHttpHandler } from "./tool-routes.js";
+import { ToolRunner } from "./tool-runner.js";
 
 // Re-export public types for consumers.
 export { SkillRegistry } from "./skill-registry.js";
@@ -82,6 +86,11 @@ export default {
     const agentState = new AgentStateManager();
     const gateway = new GatewayClient();
 
+    // Tool runner for workspace tool execution
+    const toolRunner = new ToolRunner({ maxConcurrent: 3 });
+    let loadedTools: LoadedTool[] = [];
+    const toolsRoot = join(process.cwd(), "tools");
+
     // Connect to gateway in background (non-blocking)
     void (async () => {
       try {
@@ -133,6 +142,17 @@ export default {
       } catch (err) {
         api.logger.warn(`vwp-dispatch: cleanup failed: ${String(err)}`);
       }
+
+      try {
+        loadedTools = await discoverTools(toolsRoot);
+        if (loadedTools.length > 0) {
+          api.logger.info(`vwp-dispatch: discovered ${loadedTools.length} workspace tools`);
+        } else {
+          api.logger.warn("vwp-dispatch: no workspace tools found in tools/ directory");
+        }
+      } catch (err) {
+        api.logger.warn(`vwp-dispatch: tool discovery failed: ${String(err)}`);
+      }
     })();
 
     // Resolve gateway token for auth on HTTP routes.
@@ -152,6 +172,15 @@ export default {
     // Register Kanban HTTP handler — delegates to kanban-routes.ts.
     const kanbanHandler = createKanbanHttpHandler({ gatewayToken, agentState });
     api.registerHttpHandler(kanbanHandler);
+
+    // Tool HTTP routes with real SSE emission
+    const toolHandler = createToolHttpHandler({
+      gatewayToken,
+      runner: toolRunner,
+      getTools: () => loadedTools,
+      onSSE: (event) => sse.emit(event as any),
+    });
+    api.registerHttpHandler(toolHandler);
 
     // Auto-analyze tasks when they become active in the queue.
     queue.on("task_started", (task: TaskRequest) => {
@@ -286,6 +315,7 @@ export default {
 
     const shutdown = new ShutdownManager();
     shutdown.onShutdown(async () => {
+      await toolRunner.cancelAll();
       api.logger.info("vwp-dispatch: shutting down...");
       gateway.disconnect();
       health.dispose();
