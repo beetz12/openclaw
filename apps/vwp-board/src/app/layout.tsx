@@ -47,6 +47,12 @@ function Sidebar() {
         >
           New Goal
         </a>
+        <a
+          href="/tools"
+          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          Tools
+        </a>
         <AgentToggleButton />
       </nav>
     </aside>
@@ -77,6 +83,17 @@ function TabBar() {
           <line x1="6" y1="10" x2="14" y2="10" />
         </svg>
         New Goal
+      </a>
+      <a
+        href="/tools"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M14.5 3.5l2 2-8.5 8.5H6v-2L14.5 3.5z" />
+          <path d="M12.5 5.5l2 2" />
+          <path d="M3 17h14" />
+        </svg>
+        Tools
       </a>
       <MobileAgentTab />
     </nav>
