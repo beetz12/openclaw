@@ -288,19 +288,26 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         break;
 
       case "agent_connected": {
-        const agents = get().agents.filter((a) => a.id !== event.agent.id);
-        set({ agents: [...agents, event.agent] });
+        set((state) => ({
+          agents: [
+            ...state.agents.filter((a) => a.id !== event.agent.id),
+            event.agent,
+          ],
+        }));
         break;
       }
       case "agent_status_changed": {
-        const agents = get().agents.map((a) =>
-          a.id === event.agent.id ? event.agent : a,
-        );
-        set({ agents });
+        set((state) => ({
+          agents: state.agents.map((a) =>
+            a.id === event.agent.id ? event.agent : a,
+          ),
+        }));
         break;
       }
       case "agent_disconnected": {
-        set({ agents: get().agents.filter((a) => a.id !== event.agentId) });
+        set((state) => ({
+          agents: state.agents.filter((a) => a.id !== event.agentId),
+        }));
         break;
       }
       case "agent_log":
