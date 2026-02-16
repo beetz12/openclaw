@@ -1,0 +1,33 @@
+{
+  "name": "content_drafter",
+  "label": "Content Drafter",
+  "description": "Generate platform-specific content drafts from trending topics",
+  "category": "content",
+  "entrypoint": "content_drafter.py",
+  "runtime": "python3",
+  "args_schema": {
+    "type": {
+      "type": "enum",
+      "values": [
+        "linkedin",
+        "youtube",
+        "youtube_shorts",
+        "x",
+        "threads",
+        "instagram",
+        "tiktok",
+        "facebook",
+        "reddit",
+        "pinterest"
+      ],
+      "required": false,
+      "label": "Platform (default: linkedin)"
+    },
+    "topic": { "type": "string", "required": false, "label": "Topic index (default: auto-pick)" },
+    "all": { "type": "boolean", "required": false, "label": "Generate for all platforms" }
+  },
+  "env_allowlist": ["ANTHROPIC_API_KEY"],
+  "outputs": ["drafts/"],
+  "timeout_seconds": 600,
+  "max_output_bytes": 20971520
+}

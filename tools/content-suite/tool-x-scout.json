@@ -1,0 +1,27 @@
+{
+  "name": "x_scout",
+  "label": "X/Twitter Intelligence",
+  "description": "Research X/Twitter for leads, trends, or competitor analysis",
+  "category": "research",
+  "entrypoint": "x_scout.py",
+  "runtime": "python3",
+  "args_schema": {
+    "query": { "type": "string", "required": true, "label": "Search Query" },
+    "mode": {
+      "type": "enum",
+      "values": ["leads", "trends", "competitor"],
+      "required": true,
+      "label": "Research Mode"
+    }
+  },
+  "env_allowlist": [
+    "RAPIDAPI_KEY",
+    "RAPIDAPI_HOST",
+    "RAPIDAPI_SEARCH_URL",
+    "BRAVE_SEARCH_API_KEY",
+    "ANTHROPIC_API_KEY"
+  ],
+  "outputs": ["reports/", "logs/"],
+  "timeout_seconds": 300,
+  "max_output_bytes": 10485760
+}
