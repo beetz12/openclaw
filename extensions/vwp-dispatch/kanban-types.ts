@@ -34,7 +34,8 @@ export type KanbanSSEEvent =
   | { type: "agent_action"; taskId: string; agentName: string; action: string; detail: string }
   | { type: "cost_update"; taskId: string; currentTokens: number; currentUsd: number }
   | { type: "approval_required"; taskId: string; subtaskId: string; actionType: string }
-  | AgentSSEEvent;
+  | AgentSSEEvent
+  | ToolSSEEvent;
 
 // --- Agent status types (Phase 5A: Mission Control) ---
 
@@ -57,3 +58,32 @@ export type AgentSSEEvent =
   | { type: "agent_disconnected"; agentId: string }
   | { type: "agent_log"; agentId: string; taskId: string; message: string; timestamp: number }
   | { type: "gateway_status"; connected: boolean };
+
+// --- Tool run types (Workspace Tools Integration) ---
+
+export type ToolRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export interface ToolRunInfo {
+  runId: string;
+  toolName: string;
+  toolLabel: string;
+  args: Record<string, string>;
+  status: ToolRunStatus;
+  startedAt: number;
+  completedAt: number | null;
+  exitCode: number | null;
+  error: string | null;
+}
+
+export type ToolSSEEvent =
+  | { type: "tool_run_started"; run: ToolRunInfo }
+  | { type: "tool_run_output"; runId: string; stream: "stdout" | "stderr"; chunk: string }
+  | {
+      type: "tool_run_completed";
+      runId: string;
+      toolName: string;
+      exitCode: number;
+      durationMs: number;
+    }
+  | { type: "tool_run_failed"; runId: string; toolName: string; error: string }
+  | { type: "tool_run_cancelled"; runId: string; toolName: string };
