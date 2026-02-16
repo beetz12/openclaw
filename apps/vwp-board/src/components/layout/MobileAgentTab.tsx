@@ -10,6 +10,7 @@ export function MobileAgentTab() {
     <button
       type="button"
       onClick={() => setOpen(true)}
+      aria-label="Open agents panel"
       className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] relative"
     >
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
