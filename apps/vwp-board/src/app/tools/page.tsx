@@ -17,6 +17,28 @@ interface ToolDef {
     { type: string; values?: string[]; required?: boolean; label: string }
   >;
   runtime: string;
+  timeout_seconds?: number;
+}
+
+/** Maximum output size before truncation (matches backend default). */
+const MAX_OUTPUT_BYTES = 512 * 1024;
+
+function formatTimeout(seconds: number): string {
+  if (seconds >= 60) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  return `${seconds}s`;
+}
+
+function isApiError(err: unknown): err is { error: string; status: number; code?: string } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "error" in err &&
+    "status" in err
+  );
 }
 
 // ---------- Status Badge ----------
@@ -72,6 +94,11 @@ function ToolCard({
       <p className="mb-3 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         {tool.description}
       </p>
+      {tool.timeout_seconds != null && (
+        <div className="mb-3 text-[10px] text-[var(--color-text-muted)]">
+          Timeout: {formatTimeout(tool.timeout_seconds)}
+        </div>
+      )}
       <button
         onClick={() => onRun(tool)}
         className="w-full rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition-opacity"
@@ -91,13 +118,19 @@ function RunDialog({
 }: {
   tool: ToolDef;
   onClose: () => void;
-  onSubmit: (args: Record<string, string>) => void;
+  onSubmit: (args: Record<string, string>) => Promise<void>;
 }) {
   const [args, setArgs] = useState<Record<string, string>>({});
+  const [isRunning, setIsRunning] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(args);
+    setIsRunning(true);
+    try {
+      await onSubmit(args);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   return (
@@ -109,6 +142,11 @@ function RunDialog({
         <p className="mb-4 text-xs text-[var(--color-text-secondary)]">
           {tool.description}
         </p>
+        {tool.timeout_seconds != null && (
+          <div className="mb-3 text-xs text-[var(--color-text-muted)]">
+            Timeout: {formatTimeout(tool.timeout_seconds)}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {Object.entries(tool.args_schema).map(([key, schema]) => (
             <div key={key}>
@@ -125,7 +163,8 @@ function RunDialog({
                     setArgs((prev) => ({ ...prev, [key]: e.target.value }))
                   }
                   required={schema.required}
-                  className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                  disabled={isRunning}
+                  className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm text-[var(--color-text)] disabled:opacity-50"
                 >
                   <option value="">Select...</option>
                   {schema.values.map((v) => (
@@ -144,7 +183,8 @@ function RunDialog({
                       [key]: e.target.checked ? "true" : "",
                     }))
                   }
-                  className="h-4 w-4"
+                  disabled={isRunning}
+                  className="h-4 w-4 disabled:opacity-50"
                 />
               ) : (
                 <input
@@ -154,7 +194,8 @@ function RunDialog({
                     setArgs((prev) => ({ ...prev, [key]: e.target.value }))
                   }
                   required={schema.required}
-                  className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                  disabled={isRunning}
+                  className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm text-[var(--color-text)] disabled:opacity-50"
                   placeholder={schema.label}
                 />
               )}
@@ -164,15 +205,20 @@ function RunDialog({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)]"
+              disabled={isRunning}
+              className="flex-1 rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              disabled={isRunning}
+              className="flex-1 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              Start Run
+              {isRunning && (
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              )}
+              {isRunning ? "Starting..." : "Start Run"}
             </button>
           </div>
         </form>
@@ -218,6 +264,11 @@ function RunOutputViewer({
       {output && (
         <pre className="max-h-64 overflow-auto rounded bg-[var(--color-bg)] p-3 font-mono text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
           {output}
+          {run.status === "running" && output.length >= MAX_OUTPUT_BYTES * 0.95 && (
+            <span className="block mt-1 text-yellow-600 font-sans font-medium">
+              [Output truncated — limit reached]
+            </span>
+          )}
         </pre>
       )}
       {run.error && (
@@ -236,9 +287,11 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTool, setSelectedTool] = useState<ToolDef | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const toolRuns = useBoardStore((s) => s.toolRuns);
   const toolOutputs = useBoardStore((s) => s.toolOutputs);
+  const toolRunsStale = useBoardStore((s) => s.toolRunsStale);
   const fetchToolRuns = useBoardStore((s) => s.fetchToolRuns);
 
   useEffect(() => {
@@ -246,6 +299,7 @@ export default function ToolsPage() {
       try {
         const data = await kanbanApi.listTools();
         setTools(data.tools);
+        if (data.warning) {setWarning(data.warning);}
         await fetchToolRuns();
       } catch {
         setError("Failed to load tools. Is the dispatch plugin running?");
@@ -264,9 +318,14 @@ export default function ToolsPage() {
         setSelectedTool(null);
         setError(null);
       } catch (err) {
-        setError(
-          `Failed to start ${selectedTool.label}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        if (isApiError(err) && err.code === "CONCURRENCY_LIMIT") {
+          setError("All tool slots are in use (max 3). Cancel a running tool to free a slot.");
+        } else if (isApiError(err) && err.code === "RUNTIME_NOT_FOUND") {
+          setError("The required runtime (Python 3 or Node.js) is not installed on the server.");
+        } else {
+          const msg = isApiError(err) ? err.error : (err instanceof Error ? err.message : String(err));
+          setError(`Failed to start ${selectedTool.label}: ${msg}`);
+        }
       }
     },
     [selectedTool],
@@ -307,6 +366,12 @@ export default function ToolsPage() {
         </p>
       </div>
 
+      {toolRunsStale && (
+        <div className="mb-4 rounded-[var(--radius-md)] border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+          Connection lost — tool status may be outdated
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 rounded-[var(--radius-md)] border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -339,8 +404,12 @@ export default function ToolsPage() {
         </h2>
         {tools.length === 0 ? (
           <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-            No tools found. Add tool manifests to the <code>tools/</code>{" "}
+            No workspace tools found. Add tool manifests to the{" "}
+            <code className="rounded bg-[var(--color-bg-subtle)] px-1 py-0.5">tools/</code>{" "}
             directory.
+            {warning && (
+              <div className="mt-2 text-xs text-yellow-700">{warning}</div>
+            )}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
