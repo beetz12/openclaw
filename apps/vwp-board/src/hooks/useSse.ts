@@ -29,7 +29,11 @@ export function useSse(): void {
     const unsubAll = boardSSE.on("*", (data) => {
       const event = data as KanbanSSEEvent;
       if (event && typeof event === "object" && "type" in event) {
-        handleSSEEvent(event);
+        try {
+          handleSSEEvent(event);
+        } catch {
+          // Don't let one event break the SSE pipeline
+        }
       }
     });
 
