@@ -86,22 +86,37 @@ export default {
     });
     const sse = getSharedSSE();
     const agentState = new AgentStateManager();
-    const gateway = new GatewayClient();
+    // Defer GatewayClient creation until we know the actual port from the
+    // gateway.start hook.  The plugin registers before the HTTP server is
+    // listening, so env vars may not reflect the real port yet.
+    let gateway: GatewayClient | undefined;
 
     // Tool runner for workspace tool execution
     const toolRunner = new ToolRunner({ maxConcurrent: 3 });
     let loadedTools: LoadedTool[] = [];
     const toolsRoot = join(process.cwd(), "tools");
 
-    // Connect to gateway in background (non-blocking).
-    // Retry because the plugin initialises before the HTTP server starts listening.
-    void (async () => {
-      const maxAttempts = 5;
-      const retryDelayMs = 2_000;
+    // Wait for the gateway to finish starting so we know the real port,
+    // then create the GatewayClient and connect.
+    api.on("gateway_start", async (event: { port: number }) => {
+      const token = api.config.gateway?.auth?.token || process.env.OPENCLAW_GATEWAY_TOKEN || "";
+      const url = `ws://127.0.0.1:${event.port}`;
+      gateway = new GatewayClient({ url, token });
+
+      // Forward gateway events to agent state + SSE
+      gateway.on("connected", () => {
+        sse.emit({ type: "gateway_status", connected: true });
+      });
+      gateway.on("disconnected", () => {
+        sse.emit({ type: "gateway_status", connected: false });
+      });
+
+      const maxAttempts = 3;
+      const retryDelayMs = 1_000;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           await gateway.connect();
-          api.logger.info("vwp-dispatch: connected to OpenClaw Gateway");
+          api.logger.info(`vwp-dispatch: connected to OpenClaw Gateway on port ${event.port}`);
           sse.emit({ type: "gateway_status", connected: true });
           return;
         } catch (err) {
@@ -111,21 +126,11 @@ export default {
             );
             await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
           } else {
-            api.logger.warn(
-              `vwp-dispatch: gateway connection failed after ${maxAttempts} attempts: ${String(err)}`,
-            );
+            api.logger.warn(`vwp-dispatch: gateway connection failed: ${String(err)}`);
             sse.emit({ type: "gateway_status", connected: false });
           }
         }
       }
-    })();
-
-    // Forward gateway events to agent state + SSE
-    gateway.on("connected", () => {
-      sse.emit({ type: "gateway_status", connected: true });
-    });
-    gateway.on("disconnected", () => {
-      sse.emit({ type: "gateway_status", connected: false });
     });
 
     // Scan skills and load queue state in background.
@@ -203,7 +208,7 @@ export default {
     const chatStore = new ServerChatStore();
     const chatHandler = createChatHttpHandler({
       gatewayToken,
-      gateway,
+      gateway: () => gateway,
       chatStore,
       onSSE: (event) => sse.emit(event as any),
     });
@@ -344,7 +349,7 @@ export default {
     shutdown.onShutdown(async () => {
       await toolRunner.cancelAll();
       api.logger.info("vwp-dispatch: shutting down...");
-      gateway.disconnect();
+      gateway?.disconnect();
       health.dispose();
       await queue.persist();
       registry.stopWatching();

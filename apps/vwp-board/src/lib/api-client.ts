@@ -283,6 +283,11 @@ export class KanbanApiClient {
     return this._fetch(url);
   }
 
+  async getChatStatus(): Promise<{ connected: boolean }> {
+    const url = this._url("/vwp/chat/status");
+    return this._fetch(url);
+  }
+
   // --- Team API ---
 
   async getTeam(): Promise<{ team: { businessType: string; businessName: string; members: Array<{ id: string; name: string; role: string; description: string; skills: string[]; required: boolean; active: boolean }>; updatedAt: number } }> {

@@ -93,8 +93,11 @@ if [[ ! -f "$ROOT_DIR/.env" ]]; then
   echo -e "${YELLOW}Warning: No .env file found. Copy .env.example to .env and configure it.${NC}"
 fi
 
+# Resolve gateway port (env > config > default 18789)
+GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
+
 # 1. Start OpenClaw Gateway
-echo -e "${GREEN}[1/2] Starting OpenClaw Gateway (port 18789)...${NC}"
+echo -e "${GREEN}[1/2] Starting OpenClaw Gateway (port $GATEWAY_PORT)...${NC}"
 
 if [[ "$SKIP_CHANNELS" == "1" ]]; then
   echo -e "       Mode: ${YELLOW}web-only${NC} (channels skipped)"
@@ -113,7 +116,7 @@ echo -e "       PID: $GATEWAY_PID | Log: .vwp-logs/gateway.log"
 # Wait for gateway to be ready
 echo -n "       Waiting for gateway"
 for i in $(seq 1 30); do
-  if curl -sf http://localhost:18789/health >/dev/null 2>&1; then
+  if curl -sf http://localhost:$GATEWAY_PORT/health >/dev/null 2>&1; then
     echo -e " ${GREEN}ready${NC}"
     break
   fi
@@ -160,7 +163,7 @@ echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}  VWP Stack Running                     ${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
-echo -e "  Gateway:         ${GREEN}http://localhost:18789${NC}"
+echo -e "  Gateway:         ${GREEN}http://localhost:$GATEWAY_PORT${NC}"
 echo -e "  Mission Control: ${GREEN}http://localhost:3000${NC}"
 echo ""
 if [[ "$SKIP_CHANNELS" == "1" ]]; then
