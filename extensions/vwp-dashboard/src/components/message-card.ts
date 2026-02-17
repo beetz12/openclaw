@@ -1,206 +1,213 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { PendingMessage } from "../api/types.js";
+import { channelIcon, check, pencil, x, chevronDown } from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 import "./channel-badge.js";
 
 @customElement("vwp-message-card")
 export class MessageCard extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-    }
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+      }
 
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      overflow: hidden;
-      transition: box-shadow 0.15s ease;
-    }
+      .card {
+        overflow: hidden;
+        transition: box-shadow 0.15s ease;
+      }
 
-    .card:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    }
+      .card:hover {
+        box-shadow: var(--shadow-md);
+      }
 
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 16px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
 
-    .channel-icon {
-      font-size: 18px;
-      flex-shrink: 0;
-    }
+      .channel-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+        color: var(--color-text-secondary);
+      }
 
-    .meta {
-      flex: 1;
-      min-width: 0;
-    }
+      .channel-icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
 
-    .recipient {
-      font-size: 14px;
-      font-weight: 600;
-      color: #1f2937;
-    }
+      .meta {
+        flex: 1;
+        min-width: 0;
+      }
 
-    .preview {
-      font-size: 13px;
-      color: #6b7280;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 2px;
-    }
+      .recipient {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--color-text);
+      }
 
-    .time {
-      font-size: 12px;
-      color: #9ca3af;
-      flex-shrink: 0;
-    }
+      .preview {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 2px;
+      }
 
-    .expand-indicator {
-      font-size: 12px;
-      color: #9ca3af;
-      transition: transform 0.15s ease;
-    }
+      .time {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        flex-shrink: 0;
+      }
 
-    .expand-indicator.open {
-      transform: rotate(180deg);
-    }
+      .expand-indicator {
+        font-size: 16px;
+        color: var(--color-text-muted);
+        transition: transform 0.15s ease;
+      }
 
-    .body {
-      padding: 0 16px 16px;
-      border-top: 1px solid #f3f4f6;
-    }
+      .expand-indicator svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
 
-    .full-content {
-      font-size: 14px;
-      color: #374151;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-      padding: 12px 0;
-    }
+      .expand-indicator.open {
+        transform: rotate(180deg);
+      }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
+      .body {
+        padding: 0 var(--space-4) var(--space-4);
+        border-top: 1px solid var(--color-border-light);
+      }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      transition: background 0.15s ease;
-    }
+      .full-content {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-body);
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding: var(--space-3) 0;
+      }
 
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+      .actions {
+        display: flex;
+        gap: var(--space-2);
+      }
 
-    .btn-approve {
-      background: #d1fae5;
-      color: #065f46;
-      flex: 1;
-    }
+      .actions .btn svg {
+        width: 16px;
+        height: 16px;
+      }
 
-    .btn-approve:hover:not(:disabled) {
-      background: #a7f3d0;
-    }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    .btn-edit {
-      background: #fef3c7;
-      color: #92400e;
-      flex: 1;
-    }
+      .btn-approve {
+        background: var(--color-success-light);
+        color: var(--color-success-dark);
+        flex: 1;
+      }
 
-    .btn-edit:hover:not(:disabled) {
-      background: #fde68a;
-    }
+      .btn-approve:hover:not(:disabled) {
+        background: var(--color-success-light);
+      }
 
-    .btn-reject {
-      background: #fee2e2;
-      color: #991b1b;
-      flex: 1;
-    }
+      .btn-edit {
+        background: var(--color-warning-light);
+        color: var(--color-warning-dark);
+        flex: 1;
+      }
 
-    .btn-reject:hover:not(:disabled) {
-      background: #fecaca;
-    }
+      .btn-edit:hover:not(:disabled) {
+        background: var(--color-warning-border);
+      }
 
-    .edit-area {
-      padding: 12px 0;
-    }
+      .btn-reject {
+        background: var(--color-danger-light);
+        color: var(--color-danger-dark);
+        flex: 1;
+      }
 
-    .edit-area textarea {
-      width: 100%;
-      min-height: 100px;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
-      line-height: 1.5;
-      resize: vertical;
-      box-sizing: border-box;
-    }
+      .btn-reject:hover:not(:disabled) {
+        background: var(--color-danger-border);
+      }
 
-    .edit-area textarea:focus {
-      outline: none;
-      border-color: #4a9c6d;
-      box-shadow: 0 0 0 2px rgba(74, 156, 109, 0.2);
-    }
+      .edit-area {
+        padding: var(--space-3) 0;
+      }
 
-    .edit-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
+      .edit-area textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 10px;
+        border: 1px solid var(--color-border-input);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        font-family: inherit;
+        line-height: 1.5;
+        resize: vertical;
+        box-sizing: border-box;
+      }
 
-    .btn-send-edited {
-      background: #4a9c6d;
-      color: #fff;
-      flex: 1;
-    }
+      .edit-area textarea:focus {
+        outline: none;
+        border-color: var(--color-action);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action) 20%, transparent);
+      }
 
-    .btn-send-edited:hover:not(:disabled) {
-      background: #3d8a5e;
-    }
+      .edit-actions {
+        display: flex;
+        gap: var(--space-2);
+        margin-top: var(--space-2);
+      }
 
-    .btn-cancel {
-      background: #f3f4f6;
-      color: #374151;
-    }
+      .btn-send-edited {
+        background: var(--color-action);
+        color: var(--color-surface);
+        flex: 1;
+      }
 
-    .btn-cancel:hover:not(:disabled) {
-      background: #e5e7eb;
-    }
+      .btn-send-edited:hover:not(:disabled) {
+        background: var(--color-action-hover);
+      }
 
-    .channel-tag {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 600;
-      color: #6b7280;
-      background: #f3f4f6;
-      padding: 2px 8px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      margin-top: 4px;
-    }
-  `;
+      .btn-cancel {
+        background: var(--color-bg-muted);
+        color: var(--color-text-body);
+      }
+
+      .btn-cancel:hover:not(:disabled) {
+        background: var(--color-border);
+      }
+
+      .channel-tag {
+        display: inline-block;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-muted);
+        padding: 2px var(--space-2);
+        border-radius: var(--radius-sm);
+        text-transform: uppercase;
+        margin-top: var(--space-1);
+      }
+    `,
+  ];
 
   @property({ type: Object }) message!: PendingMessage;
   @property({ type: Boolean }) busy = false;
@@ -208,19 +215,6 @@ export class MessageCard extends LitElement {
   @state() private _expanded = false;
   @state() private _editing = false;
   @state() private _editContent = "";
-
-  private _channelIcon(channel: string): string {
-    switch (channel.toLowerCase()) {
-      case "whatsapp":
-        return "\u{1F4AC}";
-      case "telegram":
-        return "\u2708\uFE0F";
-      case "email":
-        return "\u{1F4E7}";
-      default:
-        return "\u{1F4AC}";
-    }
-  }
 
   private _formatTimeAgo(timestamp: number): string {
     const diff = Date.now() - timestamp;
@@ -283,14 +277,14 @@ export class MessageCard extends LitElement {
     return html`
       <div class="card">
         <div class="header" @click=${this._toggleExpand}>
-          <span class="channel-icon">${this._channelIcon(m.channel)}</span>
+          <span class="channel-icon">${channelIcon(m.channel)}</span>
           <div class="meta">
             <div class="recipient">To: ${m.to}</div>
             ${this._expanded ? nothing : html`<div class="preview">${preview}</div>`}
           </div>
           <span class="time">${this._formatTimeAgo(m.created_at)}</span>
           <span class="expand-indicator ${this._expanded ? "open" : ""}">
-            \u25BC
+            ${chevronDown}
           </span>
         </div>
 
@@ -326,13 +320,13 @@ export class MessageCard extends LitElement {
                     ? html`
                       <div class="actions">
                         <button class="btn btn-approve" ?disabled=${this.busy} @click=${this._handleApprove}>
-                          \u2705 Approve
+                          ${check} Approve
                         </button>
                         <button class="btn btn-edit" ?disabled=${this.busy} @click=${this._startEdit}>
-                          \u270F\uFE0F Edit
+                          ${pencil} Edit
                         </button>
                         <button class="btn btn-reject" ?disabled=${this.busy} @click=${this._handleReject}>
-                          \u274C Reject
+                          ${x} Reject
                         </button>
                       </div>
                     `

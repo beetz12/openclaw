@@ -1,5 +1,16 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import {
+  hand,
+  building2,
+  sparkles,
+  partyPopper,
+  laptop,
+  shoppingCart,
+  briefcase,
+} from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 
 type BusinessType = "it-consultancy" | "ecommerce" | "other" | "";
 
@@ -7,211 +18,242 @@ const TOTAL_STEPS = 4;
 
 @customElement("vwp-onboarding-view")
 export class OnboardingView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      padding: 16px;
-      max-width: 480px;
-      margin: 0 auto;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        padding: var(--space-4);
+        max-width: 480px;
+        margin: 0 auto;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
 
-    .container {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
-      padding: 32px 24px;
-      text-align: center;
-    }
+      .container {
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        padding: var(--space-8) var(--space-6);
+        text-align: center;
+      }
 
-    .step-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
+      .step-icon {
+        font-size: 3rem;
+        color: var(--color-primary);
+        margin-bottom: var(--space-4);
+      }
 
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0 0 8px;
-    }
+      .step-icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+        margin: 0 auto;
+      }
 
-    p {
-      font-size: 15px;
-      color: #6b7280;
-      line-height: 1.6;
-      margin: 0 0 24px;
-    }
+      h1 {
+        font-size: var(--font-size-xl);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0 0 var(--space-2);
+      }
 
-    .type-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      text-align: left;
-      margin-bottom: 24px;
-    }
+      p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        margin: 0 0 var(--space-6);
+      }
 
-    .type-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      background: #f9fafb;
-      border: 2px solid #e5e7eb;
-      border-radius: 10px;
-      cursor: pointer;
-      transition:
-        border-color 0.15s ease,
-        background 0.15s ease;
-      min-height: 44px;
-    }
+      .channel-hint {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        line-height: 1.5;
+        margin: 0 0 var(--space-6);
+        font-style: italic;
+      }
 
-    .type-card:hover {
-      border-color: #d1d5db;
-      background: #f3f4f6;
-    }
+      .type-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+        margin-bottom: var(--space-6);
+      }
 
-    .type-card.selected {
-      border-color: #4a9c6d;
-      background: #f0fdf4;
-    }
+      .type-card {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: 14px var(--space-4);
+        background: var(--color-bg-subtle);
+        border: 2px solid var(--color-border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          background 0.15s ease;
+        min-height: 44px;
+      }
 
-    .type-card-icon {
-      font-size: 24px;
-      flex-shrink: 0;
-    }
+      .type-card:hover {
+        border-color: var(--color-border-input);
+        background: var(--color-bg-muted);
+      }
 
-    .type-card-content {
-      flex: 1;
-    }
+      .type-card.selected {
+        border-color: var(--color-action);
+        background: var(--color-success-lighter);
+      }
 
-    .type-card-content strong {
-      display: block;
-      font-size: 15px;
-      color: #1f2937;
-    }
+      .type-card-icon {
+        font-size: var(--font-size-2xl);
+        flex-shrink: 0;
+        color: var(--color-text-secondary);
+      }
 
-    .type-card-content span {
-      font-size: 13px;
-      color: #6b7280;
-    }
+      .type-card-icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
 
-    .input-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
+      .type-card.selected .type-card-icon {
+        color: var(--color-action);
+      }
 
-    .input-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 6px;
-    }
+      .type-card-content {
+        flex: 1;
+      }
 
-    .input-group input,
-    .input-group textarea {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 16px;
-      font-family: inherit;
-      box-sizing: border-box;
-    }
+      .type-card-content strong {
+        display: block;
+        font-size: var(--font-size-sm);
+        color: var(--color-text);
+      }
 
-    .input-group input:focus,
-    .input-group textarea:focus {
-      outline: none;
-      border-color: #4a9c6d;
-      box-shadow: 0 0 0 2px rgba(74, 156, 109, 0.2);
-    }
+      .type-card-content span {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+      }
 
-    .input-group textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
+      .input-group {
+        margin-bottom: var(--space-4);
+        text-align: left;
+      }
 
-    .dots {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
+      .input-group label {
+        display: block;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--color-text-body);
+        margin-bottom: 6px;
+      }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #d1d5db;
-      transition: background 0.2s ease;
-    }
+      .input-group input,
+      .input-group textarea {
+        width: 100%;
+        padding: var(--space-3) 14px;
+        border: 1px solid var(--color-border-input);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-base);
+        font-family: inherit;
+        box-sizing: border-box;
+      }
 
-    .dot.active {
-      background: #4a9c6d;
-      width: 24px;
-      border-radius: 4px;
-    }
+      .input-group input:focus,
+      .input-group textarea:focus {
+        outline: none;
+        border-color: var(--color-action);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action) 20%, transparent);
+      }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
+      .input-group textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 20px;
-      border-radius: 8px;
-      border: none;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      flex: 1;
-      transition: background 0.15s ease;
-    }
+      .dots {
+        display: flex;
+        justify-content: center;
+        gap: var(--space-2);
+        margin-bottom: var(--space-6);
+      }
 
-    .btn-primary {
-      background: #4a9c6d;
-      color: #fff;
-    }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-border-input);
+        transition: background 0.2s ease;
+      }
 
-    .btn-primary:hover {
-      background: #3d8a5e;
-    }
+      .dot.active {
+        background: var(--color-action);
+        width: 24px;
+        border-radius: var(--radius-sm);
+      }
 
-    .btn-primary:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
+      .actions {
+        display: flex;
+        gap: var(--space-2);
+      }
 
-    .btn-secondary {
-      background: #f3f4f6;
-      color: #374151;
-    }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-3) 20px;
+        border-radius: var(--radius-md);
+        border: none;
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+        flex: 1;
+        transition: background 0.15s ease;
+      }
 
-    .btn-secondary:hover {
-      background: #e5e7eb;
-    }
+      .btn-primary {
+        background: var(--color-action);
+        color: var(--color-surface);
+      }
 
-    .skip {
-      font-size: 13px;
-      color: #9ca3af;
-      cursor: pointer;
-      background: none;
-      border: none;
-      margin-top: 12px;
-    }
+      .btn-primary:hover {
+        background: var(--color-action-hover);
+      }
 
-    .skip:hover {
-      color: #6b7280;
-    }
-  `;
+      .btn-primary:disabled {
+        background: var(--color-text-muted);
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: var(--color-bg-muted);
+        color: var(--color-text-body);
+      }
+
+      .btn-secondary:hover {
+        background: var(--color-border);
+      }
+
+      .skip {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        cursor: pointer;
+        background: none;
+        border: none;
+        margin-top: var(--space-3);
+      }
+
+      .skip:hover {
+        color: var(--color-text-secondary);
+      }
+    `,
+  ];
 
   @state() private _step = 0;
   @state() private _businessType: BusinessType = "";
@@ -304,7 +346,7 @@ export class OnboardingView extends LitElement {
     switch (this._step) {
       case 0:
         return html`
-          <div class="step-icon">\u{1F44B}</div>
+          <div class="step-icon">${hand}</div>
           <h1>Welcome to your AI Assistant</h1>
           <p>
             Your assistant can help with everyday business tasks -- answering messages, looking things up, and
@@ -314,7 +356,7 @@ export class OnboardingView extends LitElement {
 
       case 1:
         return html`
-          <div class="step-icon">\u{1F3E2}</div>
+          <div class="step-icon">${building2}</div>
           <h1>What type of business?</h1>
           <p>This helps your assistant give better suggestions.</p>
           <div class="type-cards">
@@ -322,7 +364,7 @@ export class OnboardingView extends LitElement {
               class="type-card ${this._businessType === "it-consultancy" ? "selected" : ""}"
               @click=${() => this._selectType("it-consultancy")}
             >
-              <span class="type-card-icon">\u{1F4BB}</span>
+              <span class="type-card-icon">${laptop}</span>
               <div class="type-card-content">
                 <strong>IT Consultancy</strong>
                 <span>Tech services, consulting, software</span>
@@ -332,7 +374,7 @@ export class OnboardingView extends LitElement {
               class="type-card ${this._businessType === "ecommerce" ? "selected" : ""}"
               @click=${() => this._selectType("ecommerce")}
             >
-              <span class="type-card-icon">\u{1F6D2}</span>
+              <span class="type-card-icon">${shoppingCart}</span>
               <div class="type-card-content">
                 <strong>Ecommerce Business</strong>
                 <span>Online store, products, shipping</span>
@@ -342,7 +384,7 @@ export class OnboardingView extends LitElement {
               class="type-card ${this._businessType === "other" ? "selected" : ""}"
               @click=${() => this._selectType("other")}
             >
-              <span class="type-card-icon">\u{1F4BC}</span>
+              <span class="type-card-icon">${briefcase}</span>
               <div class="type-card-content">
                 <strong>Other Business</strong>
                 <span>Services, retail, hospitality, etc.</span>
@@ -353,7 +395,7 @@ export class OnboardingView extends LitElement {
 
       case 2:
         return html`
-          <div class="step-icon">\u2728</div>
+          <div class="step-icon">${sparkles}</div>
           <h1>Tell us about your business</h1>
           <p>Your assistant will use this to help answer questions.</p>
           <div class="input-group">
@@ -383,12 +425,15 @@ export class OnboardingView extends LitElement {
 
       case 3:
         return html`
-          <div class="step-icon">\u{1F389}</div>
+          <div class="step-icon">${partyPopper}</div>
           <h1>You're ready!</h1>
           <p>
             ${this._businessName.trim() ? `${this._businessName.trim()}, your` : "Your"}
             AI assistant is ready to help with basic tasks.
             You can submit tasks, review messages, and manage your business info from the dashboard.
+          </p>
+          <p class="channel-hint">
+            Next, ask your admin to connect a messaging channel (WhatsApp, Telegram, or Email) so your assistant can start helping.
           </p>
         `;
 

@@ -40,8 +40,13 @@ export type ApprovalRoutesDeps = {
 export function createApprovalHttpHandler(deps: ApprovalRoutesDeps) {
   const { db, sse, gatewayToken, onApproved } = deps;
 
-  function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
-    const token = getBearerToken(req);
+  function checkAuth(req: IncomingMessage, res: ServerResponse, url?: URL): boolean {
+    // Accept token from Bearer header or ?token= query param.
+    // EventSource cannot send custom headers, so SSE clients use the query param.
+    const token =
+      getBearerToken(req) ??
+      (url ?? new URL(req.url ?? "/", "http://localhost")).searchParams.get("token") ??
+      undefined;
     if (!gatewayToken || !safeEqualSecret(token, gatewayToken)) {
       jsonResponse(res, 401, { error: "Unauthorized" });
       return false;
@@ -60,8 +65,8 @@ export function createApprovalHttpHandler(deps: ApprovalRoutesDeps) {
 
     // SSE endpoint - check auth before connection
     if (req.method === "GET" && pathname === "/vwp/events") {
-      if (!checkAuth(req, res)) return true;
-      const added = sse.addConnection(res);
+      if (!checkAuth(req, res, url)) return true;
+      const added = sse.addConnection(res, req);
       if (!added) {
         jsonResponse(res, 429, { error: "Too many SSE connections" });
       }

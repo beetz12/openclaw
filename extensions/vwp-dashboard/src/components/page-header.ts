@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { arrowLeft } from "../styles/icons.js";
 import { theme } from "../styles/theme.js";
 
 @customElement("vwp-page-header")
@@ -34,11 +35,17 @@ export class VwpPageHeader extends LitElement {
         border: none;
         background: transparent;
         cursor: pointer;
-        font-size: var(--font-size-xl);
+        font-size: 22px;
         color: var(--color-primary);
         border-radius: var(--radius-md);
         -webkit-tap-highlight-color: transparent;
         padding: 0;
+      }
+
+      .back-btn svg {
+        display: block;
+        width: 1em;
+        height: 1em;
       }
 
       .back-btn:active {
@@ -85,7 +92,7 @@ export class VwpPageHeader extends LitElement {
       <div class="header">
         ${
           this.showBack
-            ? html`<button class="back-btn" @click=${this._onBack} aria-label="Go back">\u2190</button>`
+            ? html`<button class="back-btn" @click=${this._onBack} aria-label="Go back">${arrowLeft}</button>`
             : ""
         }
         <div class="title-group">

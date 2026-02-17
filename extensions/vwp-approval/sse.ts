@@ -130,3 +130,16 @@ export class ApprovalSSE {
     this.emitter.removeAllListeners();
   }
 }
+
+/**
+ * Shared singleton SSE instance for all VWP plugins.
+ * Both vwp-approval (SSE connections) and vwp-dispatch (event emission)
+ * must use the same instance so events reach connected browsers.
+ */
+let _sharedInstance: ApprovalSSE | null = null;
+export function getSharedSSE(): ApprovalSSE {
+  if (!_sharedInstance) {
+    _sharedInstance = new ApprovalSSE();
+  }
+  return _sharedInstance;
+}

@@ -1,63 +1,67 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 
 @customElement("vwp-stat-card")
 export class StatCard extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-    }
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+      }
 
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+      }
 
-    .card.highlight {
-      border-left: 4px solid #e07a5f;
-    }
+      .card.highlight {
+        border-left: 4px solid var(--color-accent);
+      }
 
-    .label {
-      font-size: 13px;
-      color: #6b7280;
-      font-weight: 500;
-    }
+      .label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        font-weight: 500;
+      }
 
-    .value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1f2937;
-      line-height: 1.2;
-    }
+      .value {
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        color: var(--color-text);
+        line-height: 1.2;
+        font-family: var(--font-mono);
+        letter-spacing: -0.02em;
+      }
 
-    .card.highlight .value {
-      color: #e07a5f;
-    }
+      .card.highlight .value {
+        color: var(--color-accent);
+      }
 
-    .sub {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 2px;
-    }
+      .sub {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        margin-top: 2px;
+      }
 
-    .trend {
-      font-size: 12px;
-      margin-top: 2px;
-    }
+      .trend {
+        font-size: var(--font-size-xs);
+        margin-top: 2px;
+      }
 
-    .trend.up {
-      color: #4a9c6d;
-    }
+      .trend.up {
+        color: var(--color-action);
+      }
 
-    .trend.down {
-      color: #e07a5f;
-    }
-  `;
+      .trend.down {
+        color: var(--color-accent);
+      }
+    `,
+  ];
 
   @property() label = "";
   @property() value = "";

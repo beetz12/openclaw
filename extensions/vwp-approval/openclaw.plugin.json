@@ -1,0 +1,9 @@
+{
+  "id": "vwp-approval",
+  "channels": [],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

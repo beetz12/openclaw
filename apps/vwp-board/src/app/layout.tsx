@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, DM_Mono } from "next/font/google";
 import { AgentToggleButton } from "@/components/layout/AgentToggleButton";
 import { MobileAgentTab } from "@/components/layout/MobileAgentTab";
+import { SseProvider } from "@/components/layout/SseProvider";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -36,22 +37,55 @@ function Sidebar() {
       </div>
       <nav className="flex flex-col gap-1">
         <a
-          href="/board"
-          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+          href="/"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
         >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M4 4h12a2 2 0 012 2v6a2 2 0 01-2 2H8l-4 3v-3a2 2 0 01-2-2V6a2 2 0 012-2z" />
+          </svg>
+          Chat
+        </a>
+        <a
+          href="/board"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="3" width="5" height="14" rx="1" />
+            <rect x="8" y="5" width="5" height="10" rx="1" />
+            <rect x="14" y="4" width="5" height="12" rx="1" />
+          </svg>
           Board
         </a>
         <a
-          href="/goals/new"
-          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+          href="/tools"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
         >
-          New Goal
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M14.5 3.5l2 2-8.5 8.5H6v-2L14.5 3.5z" />
+            <path d="M12.5 5.5l2 2" />
+            <path d="M3 17h14" />
+          </svg>
+          Tools
         </a>
         <a
-          href="/tools"
-          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+          href="/cost"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
         >
-          Tools
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="10" cy="10" r="8" />
+            <path d="M10 5v10M7.5 7.5h4a1.5 1.5 0 010 3H8a1.5 1.5 0 000 3h4.5" />
+          </svg>
+          Cost
+        </a>
+        <a
+          href="/settings"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="10" cy="10" r="3" />
+            <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.5 1.5M15 15l1.5 1.5M16.5 3.5l-1.5 1.5M5 15l-1.5 1.5" />
+          </svg>
+          Settings
         </a>
         <AgentToggleButton />
       </nav>
@@ -62,6 +96,15 @@ function Sidebar() {
 function TabBar() {
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex h-[var(--tab-bar-height)] items-center justify-around border-t border-[var(--color-border)] bg-[var(--color-surface)]">
+      <a
+        href="/"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M4 4h12a2 2 0 012 2v6a2 2 0 01-2 2H8l-4 3v-3a2 2 0 01-2-2V6a2 2 0 012-2z" />
+        </svg>
+        Chat
+      </a>
       <a
         href="/board"
         className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
@@ -74,17 +117,6 @@ function TabBar() {
         Board
       </a>
       <a
-        href="/goals/new"
-        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="10" cy="10" r="8" />
-          <line x1="10" y1="6" x2="10" y2="14" />
-          <line x1="6" y1="10" x2="14" y2="10" />
-        </svg>
-        New Goal
-      </a>
-      <a
         href="/tools"
         className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
       >
@@ -94,6 +126,26 @@ function TabBar() {
           <path d="M3 17h14" />
         </svg>
         Tools
+      </a>
+      <a
+        href="/cost"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="10" cy="10" r="8" />
+          <path d="M10 5v10M7.5 7.5h4a1.5 1.5 0 010 3H8a1.5 1.5 0 000 3h4.5" />
+        </svg>
+        Cost
+      </a>
+      <a
+        href="/settings"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="10" cy="10" r="3" />
+          <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.5 1.5M15 15l1.5 1.5M16.5 3.5l-1.5 1.5M5 15l-1.5 1.5" />
+        </svg>
+        Settings
       </a>
       <MobileAgentTab />
     </nav>
@@ -108,6 +160,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakarta.variable} ${dmMono.variable}`}>
       <body className="min-h-screen bg-[var(--color-bg)]">
+        <SseProvider />
         <div className="flex h-screen">
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col md:flex-row">

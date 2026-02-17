@@ -67,6 +67,7 @@ const DEFAULT_CLAUDE_BACKEND: CliBackendConfig = {
     },
   },
   serialize: true,
+  disableTools: true,
 };
 
 const DEFAULT_CODEX_BACKEND: CliBackendConfig = {
@@ -97,6 +98,7 @@ const DEFAULT_CODEX_BACKEND: CliBackendConfig = {
     },
   },
   serialize: true,
+  disableTools: true,
 };
 
 function normalizeBackendKey(key: string): string {

@@ -10,8 +10,16 @@
 
 import { EventEmitter } from "node:events";
 
-const DEFAULT_URL = process.env.OPENCLAW_GATEWAY_URL || "ws://127.0.0.1:18789";
-const DEFAULT_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "";
+/** Resolved lazily so OPENCLAW_GATEWAY_PORT (set at server startup) is available. */
+function getDefaultUrl(): string {
+  return (
+    process.env.OPENCLAW_GATEWAY_URL ||
+    `ws://127.0.0.1:${process.env.OPENCLAW_GATEWAY_PORT || "18789"}`
+  );
+}
+function getDefaultToken(): string {
+  return process.env.OPENCLAW_GATEWAY_TOKEN || "";
+}
 
 const CONNECTION_TIMEOUT_MS = 10_000;
 const CALL_TIMEOUT_MS = 30_000;
@@ -63,13 +71,13 @@ export class GatewayClient extends EventEmitter {
     super();
 
     if (typeof urlOrOpts === "object" && urlOrOpts !== null) {
-      this.url = urlOrOpts.url ?? DEFAULT_URL;
-      this.token = urlOrOpts.token ?? DEFAULT_TOKEN;
+      this.url = urlOrOpts.url ?? getDefaultUrl();
+      this.token = urlOrOpts.token ?? getDefaultToken();
       this.createWebSocket =
         urlOrOpts.createWebSocket ?? ((u: string) => new WebSocket(u) as unknown as IWebSocket);
     } else {
-      this.url = urlOrOpts ?? DEFAULT_URL;
-      this.token = token ?? DEFAULT_TOKEN;
+      this.url = urlOrOpts ?? getDefaultUrl();
+      this.token = token ?? getDefaultToken();
       this.createWebSocket = (u: string) => new WebSocket(u) as unknown as IWebSocket;
     }
 
@@ -262,11 +270,13 @@ export class GatewayClient extends EventEmitter {
           minProtocol: 3,
           maxProtocol: 3,
           client: {
-            id: "vwp-dispatch",
+            id: "gateway-client",
+            displayName: "vwp-dispatch",
             version: "1.0.0",
             platform: "node",
-            mode: "agent",
+            mode: "backend",
           },
+          scopes: ["operator.admin"],
           auth: {
             token: this.token,
           },
@@ -319,8 +329,10 @@ export class GatewayClient extends EventEmitter {
     }
 
     // --- Gateway events (forwarded to listeners) ---
+    // The gateway broadcast frame uses `payload` (not `params`) for event data.
     if (data.type === "event" && data.event) {
-      this.emit(data.event as string, data.params);
+      const evtData = data.payload ?? data.params;
+      this.emit(data.event as string, evtData);
     }
   }
 

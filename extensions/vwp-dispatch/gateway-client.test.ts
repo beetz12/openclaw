@@ -181,10 +181,10 @@ describe("GatewayClient", () => {
         minProtocol: 3,
         maxProtocol: 3,
         client: {
-          id: "vwp-dispatch",
+          id: "gateway-client",
           version: "1.0.0",
           platform: "node",
-          mode: "agent",
+          mode: "backend",
         },
         auth: { token: "tok-123" },
       });

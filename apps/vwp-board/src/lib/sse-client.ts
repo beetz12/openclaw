@@ -105,6 +105,12 @@ export class BoardSSEClient {
       "agent_disconnected",
       "agent_log",
       "gateway_status",
+      // Chat events
+      "chat_message",
+      "chat_stream_token",
+      "chat_task_dispatched",
+      "chat_intent_clarify",
+      "chat_team_suggest",
     ];
 
     for (const type of eventTypes) {
@@ -157,7 +163,6 @@ export class BoardSSEClient {
 
     const eventType =
       (data as { type?: string }).type ?? ev.type ?? "message";
-
     // Notify type-specific handlers
     const typeHandlers = this._handlers.get(eventType);
     if (typeHandlers) {

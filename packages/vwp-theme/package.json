@@ -1,0 +1,14 @@
+{
+  "name": "@vwp/theme",
+  "version": "0.1.0",
+  "description": "Shared design tokens for VWP apps",
+  "files": [
+    "index.css",
+    "tokens.ts"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./tokens.ts",
+    "./index.css": "./index.css"
+  }
+}

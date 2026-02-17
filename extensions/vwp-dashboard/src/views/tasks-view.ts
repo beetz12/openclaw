@@ -2,275 +2,297 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { tasksApi, type Task, type SubTask } from "../api/tasks-client.js";
 import { navigate } from "../router.js";
+import { statusIcon, listChecks } from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 
 @customElement("vwp-tasks-view")
 export class TasksView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      padding: 16px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0 0 4px;
-    }
-
-    .page-sub {
-      font-size: 14px;
-      color: #6b7280;
-      margin: 0 0 20px;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-      margin: 24px 0 12px;
-    }
-
-    .task-card {
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-
-    .task-card.active {
-      border-left: 4px solid #4a9c6d;
-    }
-
-    .task-card.failed {
-      border-left: 4px solid #d14343;
-    }
-
-    .task-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .task-text {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1f2937;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .task-status {
-      font-size: 12px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 4px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .task-status.running {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .task-status.pending {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .task-status.completed {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-
-    .task-status.failed {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .task-status.cancelled {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-
-    .task-time {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 4px;
-    }
-
-    .progress-bar {
-      height: 4px;
-      background: #e5e7eb;
-      border-radius: 2px;
-      margin-top: 12px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: #4a9c6d;
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-
-    .progress-fill.failed {
-      background: #d14343;
-    }
-
-    .sub-tasks {
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .sub-task {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      background: #f9fafb;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #374151;
-    }
-
-    .sub-task-icon {
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .sub-task-label {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .sub-task-result {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 2px;
-    }
-
-    .sub-task-error {
-      font-size: 12px;
-      color: #991b1b;
-      margin-top: 2px;
-    }
-
-    .task-error {
-      margin-top: 8px;
-      padding: 10px 12px;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #991b1b;
-      line-height: 1.4;
-    }
-
-    .task-result {
-      margin-top: 8px;
-      padding: 10px 12px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #166534;
-      line-height: 1.4;
-    }
-
-    .expand-toggle {
-      background: none;
-      border: none;
-      font-size: 13px;
-      color: #4a9c6d;
-      cursor: pointer;
-      padding: 4px 0;
-      margin-top: 8px;
-      font-weight: 500;
-    }
-
-    .expand-toggle:hover {
-      color: #3d8a5e;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 16px;
-    }
-
-    .empty-state .icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .empty-state h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1f2937;
-      margin: 0 0 8px;
-    }
-
-    .empty-state p {
-      font-size: 14px;
-      color: #9ca3af;
-      margin: 0 0 16px;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 20px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      transition: background 0.15s ease;
-    }
-
-    .btn-primary {
-      background: #4a9c6d;
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background: #3d8a5e;
-    }
-
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 32px;
-      color: #9ca3af;
-      font-size: 14px;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        padding: var(--space-4);
+        max-width: 600px;
+        margin: 0 auto;
       }
-    }
 
-    .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid #d1d5db;
-      border-top-color: #4a9c6d;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-  `;
+      h1 {
+        font-size: var(--font-size-xl);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0 0 var(--space-1);
+      }
+
+      .page-sub {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin: 0 0 20px;
+      }
+
+      .section-title {
+        font-size: var(--font-size-base);
+        font-weight: 600;
+        color: var(--color-text);
+        margin: var(--space-6) 0 var(--space-3);
+      }
+
+      .task-card {
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+      }
+
+      .task-card.active {
+        border-left: 4px solid var(--color-action);
+      }
+
+      .task-card.failed {
+        border-left: 4px solid var(--color-danger);
+      }
+
+      .task-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-2);
+      }
+
+      .task-text {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--color-text);
+        flex: 1;
+        min-width: 0;
+      }
+
+      .task-status {
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        padding: 2px var(--space-2);
+        border-radius: var(--radius-sm);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .task-status.running {
+        background: var(--color-success-light);
+        color: var(--color-success-dark);
+      }
+
+      .task-status.pending {
+        background: var(--color-warning-light);
+        color: var(--color-warning-dark);
+      }
+
+      .task-status.completed {
+        background: var(--color-info-light);
+        color: var(--color-info-dark);
+      }
+
+      .task-status.failed {
+        background: var(--color-danger-light);
+        color: var(--color-danger-dark);
+      }
+
+      .task-status.cancelled {
+        background: var(--color-bg-muted);
+        color: var(--color-text-secondary);
+      }
+
+      .task-time {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        margin-top: var(--space-1);
+      }
+
+      .progress-bar {
+        height: 4px;
+        background: var(--color-border);
+        border-radius: 2px;
+        margin-top: var(--space-3);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--color-action);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+      }
+
+      .progress-fill.failed {
+        background: var(--color-danger);
+      }
+
+      .sub-tasks {
+        margin-top: var(--space-3);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .sub-task {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) 10px;
+        background: var(--color-bg-subtle);
+        border-radius: 6px;
+        font-size: var(--font-size-xs);
+        color: var(--color-text-body);
+      }
+
+      .sub-task-icon {
+        font-size: var(--font-size-sm);
+        flex-shrink: 0;
+        color: var(--color-text-muted);
+      }
+
+      .sub-task-icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+
+      .sub-task-icon.completed {
+        color: var(--color-success);
+      }
+      .sub-task-icon.failed {
+        color: var(--color-danger);
+      }
+      .sub-task-icon.cancelled {
+        color: var(--color-text-muted);
+      }
+
+      .sub-task-label {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .sub-task-result {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        margin-top: 2px;
+      }
+
+      .sub-task-error {
+        font-size: var(--font-size-xs);
+        color: var(--color-danger-dark);
+        margin-top: 2px;
+      }
+
+      .task-error {
+        margin-top: var(--space-2);
+        padding: 10px var(--space-3);
+        background: var(--color-danger-lighter);
+        border: 1px solid var(--color-danger-border);
+        border-radius: 6px;
+        font-size: var(--font-size-xs);
+        color: var(--color-danger-dark);
+        line-height: 1.4;
+      }
+
+      .task-result {
+        margin-top: var(--space-2);
+        padding: 10px var(--space-3);
+        background: var(--color-success-lighter);
+        border: 1px solid var(--color-success-border);
+        border-radius: 6px;
+        font-size: var(--font-size-xs);
+        color: var(--color-success-dark);
+        line-height: 1.4;
+      }
+
+      .expand-toggle {
+        background: none;
+        border: none;
+        font-size: var(--font-size-xs);
+        color: var(--color-action);
+        cursor: pointer;
+        padding: var(--space-1) 0;
+        margin-top: var(--space-2);
+        font-weight: 500;
+      }
+
+      .expand-toggle:hover {
+        color: var(--color-action-hover);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 48px var(--space-4);
+      }
+
+      .empty-state .icon {
+        font-size: 48px;
+        margin-bottom: var(--space-4);
+      }
+
+      .empty-state .icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+
+      .empty-state h2 {
+        font-size: var(--font-size-lg);
+        font-weight: 600;
+        color: var(--color-text);
+        margin: 0 0 var(--space-2);
+      }
+
+      .empty-state p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        margin: 0 0 var(--space-4);
+      }
+
+      .btn {
+        padding: var(--space-3) 20px;
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+      }
+
+      .btn-primary {
+        background: var(--color-action);
+        color: var(--color-surface);
+      }
+
+      .btn-primary:hover {
+        background: var(--color-action-hover);
+      }
+
+      .loading {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-8);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--color-border-input);
+        border-top-color: var(--color-action);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+      }
+    `,
+  ];
 
   @state() private _loading = true;
   @state() private _tasks: Task[] = [];
@@ -295,8 +317,18 @@ export class TasksView extends LitElement {
     try {
       const res = await tasksApi.listTasks();
       this._tasks = res.tasks;
+      const activeCount = res.tasks.filter(
+        (t) => t.status === "running" || t.status === "pending",
+      ).length;
+      this.dispatchEvent(
+        new CustomEvent("task-count-change", {
+          detail: activeCount,
+          bubbles: true,
+          composed: true,
+        }),
+      );
     } catch {
-      // API not ready
+      // API may not be ready yet; fail silently on background load
     } finally {
       this._loading = false;
     }
@@ -323,21 +355,6 @@ export class TasksView extends LitElement {
     return `${days}d ago`;
   }
 
-  private _subTaskIcon(status: string): string {
-    switch (status) {
-      case "completed":
-        return "\u2705";
-      case "running":
-        return "\u{1F7E1}";
-      case "failed":
-        return "\u274C";
-      case "cancelled":
-        return "\u23F9\uFE0F";
-      default:
-        return "\u2B55";
-    }
-  }
-
   private _calcProgress(task: Task): number {
     if (task.subTasks.length === 0) {
       if (task.status === "completed") return 100;
@@ -358,7 +375,7 @@ export class TasksView extends LitElement {
             ? html`
                 <span class="spinner"></span>
               `
-            : html`<span class="sub-task-icon">${this._subTaskIcon(sub.status)}</span>`
+            : html`<span class="sub-task-icon ${sub.status}">${statusIcon(sub.status)}</span>`
         }
         <div class="sub-task-label">
           ${sub.label}
@@ -430,7 +447,7 @@ export class TasksView extends LitElement {
       return html`
         <h1>Tasks</h1>
         <div class="empty-state">
-          <div class="icon">\u{1F4CB}</div>
+          <div class="icon">${listChecks}</div>
           <h2>No tasks yet</h2>
           <p>Submit one from the home screen to get started.</p>
           <button class="btn btn-primary" @click=${() => navigate("home")}>

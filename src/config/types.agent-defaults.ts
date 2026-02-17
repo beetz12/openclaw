@@ -115,6 +115,8 @@ export type CliBackendConfig = {
       };
     };
   };
+  /** Inject "Tools are disabled" into the system prompt (default: true). */
+  disableTools?: boolean;
 };
 
 export type AgentDefaultsConfig = {
