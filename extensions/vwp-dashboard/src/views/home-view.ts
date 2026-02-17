@@ -5,297 +5,326 @@ import { api } from "../api/client.js";
 import { sseClient } from "../api/sse.js";
 import { tasksApi, type Task } from "../api/tasks-client.js";
 import { navigate } from "../router.js";
+import { statusIcon, satelliteDish, chevronRight } from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 import "../components/stat-card.js";
 import "../components/channel-badge.js";
 
 @customElement("vwp-home-view")
 export class HomeView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      padding: 16px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        padding: var(--space-4);
+        max-width: 600px;
+        margin: 0 auto;
+      }
 
-    .greeting {
-      margin-bottom: 24px;
-    }
+      .greeting {
+        margin-bottom: var(--space-6);
+      }
 
-    .greeting h1 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0 0 4px 0;
-    }
+      .greeting h1 {
+        font-size: var(--font-size-2xl);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0 0 var(--space-1) 0;
+      }
 
-    .greeting p {
-      font-size: 14px;
-      color: #6b7280;
-      margin: 0;
-    }
+      .greeting p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin: 0;
+      }
 
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    @media (max-width: 480px) {
       .stats-row {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-3);
+        margin-bottom: var(--space-6);
       }
-    }
 
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-      margin: 0 0 12px 0;
-    }
-
-    .channels {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-
-    .actions {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 20px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      transition: background 0.15s ease;
-      flex: 1;
-    }
-
-    .btn-primary {
-      background: #4a9c6d;
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background: #3d8a5e;
-    }
-
-    .btn-primary.urgent {
-      background: #e07a5f;
-    }
-
-    .btn-primary.urgent:hover {
-      background: #cc6b52;
-    }
-
-    .btn-secondary {
-      background: #f3f4f6;
-      color: #374151;
-    }
-
-    .btn-secondary:hover {
-      background: #e5e7eb;
-    }
-
-    .activity-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .activity-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 0;
-      border-bottom: 1px solid #f3f4f6;
-      font-size: 13px;
-      color: #374151;
-    }
-
-    .activity-item:last-child {
-      border-bottom: none;
-    }
-
-    .activity-status {
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .activity-content {
-      flex: 1;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .activity-time {
-      font-size: 12px;
-      color: #9ca3af;
-      flex-shrink: 0;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 32px 16px;
-      color: #9ca3af;
-    }
-
-    .empty-state p {
-      margin: 8px 0 0;
-      font-size: 14px;
-    }
-
-    .empty-state .icon {
-      font-size: 32px;
-    }
-
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 32px;
-      color: #9ca3af;
-      font-size: 14px;
-    }
-
-    .task-input-section {
-      margin-bottom: 24px;
-    }
-
-    .task-input-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .task-input-row input {
-      flex: 1;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 16px;
-      font-family: inherit;
-      box-sizing: border-box;
-      min-height: 44px;
-    }
-
-    .task-input-row input:focus {
-      outline: none;
-      border-color: #4a9c6d;
-      box-shadow: 0 0 0 2px rgba(74, 156, 109, 0.2);
-    }
-
-    .task-input-row button {
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #4a9c6d;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      white-space: nowrap;
-      transition: background 0.15s ease;
-    }
-
-    .task-input-row button:hover {
-      background: #3d8a5e;
-    }
-
-    .task-input-row button:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
-
-    .suggestions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .suggestion-chip {
-      padding: 6px 12px;
-      border-radius: 16px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      font-size: 13px;
-      color: #374151;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-    }
-
-    .suggestion-chip:hover {
-      border-color: #4a9c6d;
-      background: #f0fdf4;
-      color: #065f46;
-    }
-
-    .active-task-mini {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 8px;
-      margin-top: 10px;
-      cursor: pointer;
-      transition: background 0.15s ease;
-    }
-
-    .active-task-mini:hover {
-      background: #dcfce7;
-    }
-
-    .active-task-mini .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid #bbf7d0;
-      border-top-color: #4a9c6d;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
+      @media (max-width: 480px) {
+        .stats-row {
+          grid-template-columns: 1fr;
+        }
       }
-    }
 
-    .active-task-mini .text {
-      flex: 1;
-      font-size: 13px;
-      color: #166534;
-      font-weight: 500;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+      .section-title {
+        font-size: var(--font-size-base);
+        font-weight: 600;
+        color: var(--color-text);
+        margin: 0 0 var(--space-3) 0;
+      }
 
-    .active-task-mini .arrow {
-      font-size: 14px;
-      color: #4a9c6d;
-      flex-shrink: 0;
-    }
-  `;
+      .channels {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        margin-bottom: var(--space-6);
+      }
+
+      .actions {
+        display: flex;
+        gap: var(--space-3);
+        margin-bottom: var(--space-6);
+      }
+
+      .btn {
+        padding: var(--space-3) 20px;
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        flex: 1;
+      }
+
+      .btn-primary {
+        background: var(--color-action);
+        color: var(--color-surface);
+      }
+
+      .btn-primary:hover {
+        background: var(--color-action-hover);
+      }
+
+      .btn-primary.urgent {
+        background: var(--color-primary);
+      }
+
+      .btn-primary.urgent:hover {
+        background: var(--color-primary-dark);
+      }
+
+      .btn-secondary {
+        background: var(--color-bg-muted);
+        color: var(--color-text-body);
+      }
+
+      .btn-secondary:hover {
+        background: var(--color-border);
+      }
+
+      .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .activity-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 10px 0;
+        border-bottom: 1px solid var(--color-border-light);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-body);
+      }
+
+      .activity-item:last-child {
+        border-bottom: none;
+      }
+
+      .activity-status {
+        font-size: 18px;
+        color: var(--color-text-secondary);
+        flex-shrink: 0;
+      }
+
+      .activity-status svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+
+      .activity-status.approved,
+      .activity-status.auto_approved {
+        color: var(--color-success);
+      }
+      .activity-status.rejected {
+        color: var(--color-danger);
+      }
+      .activity-status.pending {
+        color: var(--color-warning);
+      }
+
+      .activity-content {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .activity-time {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        flex-shrink: 0;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: var(--space-8) var(--space-4);
+        color: var(--color-text-muted);
+      }
+
+      .empty-state p {
+        margin: var(--space-2) 0 0;
+        font-size: var(--font-size-sm);
+      }
+
+      .empty-state .icon {
+        font-size: var(--font-size-2xl);
+      }
+
+      .empty-state .icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+
+      .loading {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-8);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+      }
+
+      .task-input-section {
+        margin-bottom: var(--space-6);
+      }
+
+      .task-input-row {
+        display: flex;
+        gap: var(--space-2);
+      }
+
+      .task-input-row input {
+        flex: 1;
+        padding: var(--space-3) 14px;
+        border: 1px solid var(--color-border-input);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-base);
+        font-family: inherit;
+        box-sizing: border-box;
+        min-height: 44px;
+      }
+
+      .task-input-row input:focus {
+        outline: none;
+        border-color: var(--color-action);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action) 20%, transparent);
+      }
+
+      .task-input-row button {
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-md);
+        border: none;
+        background: var(--color-action);
+        color: var(--color-surface);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+        white-space: nowrap;
+        transition: background 0.15s ease;
+      }
+
+      .task-input-row button:hover {
+        background: var(--color-action-hover);
+      }
+
+      .task-input-row button:disabled {
+        background: var(--color-text-muted);
+        cursor: not-allowed;
+      }
+
+      .suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .suggestion-chip {
+        padding: 6px var(--space-3);
+        border-radius: 16px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-body);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s ease;
+      }
+
+      .suggestion-chip:hover {
+        border-color: var(--color-action);
+        background: var(--color-success-lighter);
+        color: var(--color-success-dark);
+      }
+
+      .active-task-mini {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: var(--color-success-lighter);
+        border: 1px solid var(--color-success-border);
+        border-radius: var(--radius-md);
+        margin-top: 10px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+
+      .active-task-mini:hover {
+        background: var(--color-success-lighter);
+      }
+
+      .active-task-mini .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--color-success-border);
+        border-top-color: var(--color-action);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .active-task-mini .text {
+        flex: 1;
+        font-size: var(--font-size-xs);
+        color: var(--color-success-dark);
+        font-weight: 500;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .active-task-mini .arrow {
+        font-size: 18px;
+        color: var(--color-action);
+        flex-shrink: 0;
+      }
+
+      .arrow svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+    `,
+  ];
 
   @state() private loading = true;
   @state() private pendingCount = 0;
@@ -372,15 +401,13 @@ export class HomeView extends LitElement {
         time: m.created_at,
       }));
     } catch {
-      // API may not be ready yet; keep loading state
+      // API may not be ready yet; fail silently on background load
     } finally {
       this.loading = false;
     }
   }
 
-  private _resolveChannels(
-    stats: ApprovalStats[],
-  ): Array<{
+  private _resolveChannels(stats: ApprovalStats[]): Array<{
     name: string;
     status: "connected" | "disconnected" | "warning";
     lastMessage: string;
@@ -411,7 +438,7 @@ export class HomeView extends LitElement {
       const active = res.tasks.find((t) => t.status === "running" || t.status === "pending");
       this._activeTask = active ?? null;
     } catch {
-      // API not ready
+      // Task API not critical for initial load; fail silently
     }
   }
 
@@ -424,7 +451,13 @@ export class HomeView extends LitElement {
       this._taskInput = "";
       this._loadActiveTask();
     } catch {
-      // task API not available yet
+      this.dispatchEvent(
+        new CustomEvent("show-error", {
+          detail: "Couldn't submit task — please try again",
+          bubbles: true,
+          composed: true,
+        }),
+      );
     } finally {
       this._submitting = false;
     }
@@ -477,20 +510,6 @@ export class HomeView extends LitElement {
     return `${days}d ago`;
   }
 
-  private _statusIcon(status: string): string {
-    switch (status) {
-      case "approved":
-      case "auto_approved":
-        return "\u2705";
-      case "rejected":
-        return "\u274C";
-      case "pending":
-        return "\u{1F7E1}";
-      default:
-        return "\u2B55";
-    }
-  }
-
   render() {
     if (this.loading) {
       return html`
@@ -538,6 +557,7 @@ export class HomeView extends LitElement {
                       class="suggestion-chip"
                       @click=${() => {
                         this._taskInput = s;
+                        this._submitTask();
                       }}
                     >
                       ${s}
@@ -554,7 +574,7 @@ export class HomeView extends LitElement {
               <div class="active-task-mini" @click=${() => navigate("tasks")}>
                 <span class="spinner"></span>
                 <span class="text">${this._activeTask.text}</span>
-                <span class="arrow">\u203A</span>
+                <span class="arrow">${chevronRight}</span>
               </div>
             `
             : nothing
@@ -593,8 +613,8 @@ export class HomeView extends LitElement {
               )
             : html`
                 <div class="empty-state">
-                  <div class="icon">\u{1F4E1}</div>
-                  <p>No channels set up yet. Head to settings to connect one.</p>
+                  <div class="icon">${satelliteDish}</div>
+                  <p>No channels set up yet. Tap 'More' to connect a channel.</p>
                 </div>
               `
         }
@@ -623,7 +643,7 @@ export class HomeView extends LitElement {
               ${this.recentActivity.map(
                 (item) => html`
                   <div class="activity-item">
-                    <span class="activity-status">${this._statusIcon(item.status)}</span>
+                    <span class="activity-status ${item.status}">${statusIcon(item.status)}</span>
                     <span class="activity-content">${item.content}</span>
                     <span class="activity-time">${this._formatTimeAgo(item.time)}</span>
                   </div>

@@ -49,6 +49,21 @@ export function createGatewayPluginRequestHandler(params: {
     if (matchedRoutes.length === 0) {
       return false;
     }
+
+    // Allow local UIs like Mission Control to call plugin routes directly.
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    }
+    if (req.method === "OPTIONS") {
+      res.statusCode = 204;
+      res.end();
+      return true;
+    }
+
     if (
       matchedPluginRoutesRequireGatewayAuth(matchedRoutes) &&
       dispatchContext?.gatewayAuthSatisfied === false

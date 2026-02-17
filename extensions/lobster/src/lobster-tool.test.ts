@@ -182,6 +182,8 @@ describe("lobster plugin tool", () => {
         action: "run",
       }),
     ).rejects.toThrow(/pipeline required/);
+      }),
+    ).rejects.toThrow(/pipeline required/);
   });
 
   it("requires token and approve for resume action", async () => {
@@ -239,6 +241,8 @@ describe("lobster plugin tool", () => {
       tool.execute("call3", {
         action: "run",
         pipeline: "noop",
+      }),
+    ).rejects.toThrow(/invalid JSON/);
       }),
     ).rejects.toThrow(/invalid JSON/);
   });

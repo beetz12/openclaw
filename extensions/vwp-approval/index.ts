@@ -3,7 +3,7 @@ import { ApprovalDB } from "./db.js";
 import { createDeliveryHandler } from "./delivery.js";
 import { createMessageSendingHook, type ApprovalHookConfig } from "./hook.js";
 import { createApprovalHttpHandler } from "./routes.js";
-import { ApprovalSSE } from "./sse.js";
+import { getSharedSSE } from "./sse.js";
 
 type VwpApprovalPluginConfig = {
   enabled?: boolean;
@@ -21,7 +21,7 @@ export default {
     const pluginCfg = (api.pluginConfig ?? {}) as VwpApprovalPluginConfig;
     const dbPath = api.resolvePath(pluginCfg.dbPath ?? "vwp-approval.sqlite");
     const db = new ApprovalDB(dbPath);
-    const sse = new ApprovalSSE();
+    const sse = getSharedSSE();
 
     // Compile auto-approve patterns
     const compiledPatterns: RegExp[] = [];

@@ -1,0 +1,18 @@
+{
+  "id": "vwp-dispatch",
+  "channels": [],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "pluginsPath": { "type": "string" },
+      "provider": { "type": "string" },
+      "analyzerModel": { "type": "string" },
+      "teamModel": { "type": "string" },
+      "teamTimeoutMs": { "type": "number" },
+      "perTaskMaxUsd": { "type": "number" },
+      "monthlyMaxUsd": { "type": "number" }
+    }
+  }
+}

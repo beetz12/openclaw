@@ -262,6 +262,72 @@ export class KanbanApiClient {
     const url = this._url(`/vwp/tools/runs/${encodeURIComponent(runId)}`);
     return this._fetch(url, { method: "DELETE" });
   }
+
+  // --- Chat API ---
+
+  async sendChatMessage(message: string, conversationId?: string): Promise<{ messageId: string; conversationId: string }> {
+    const url = this._url("/vwp/chat/send");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, conversationId }),
+    });
+  }
+
+  async getChatHistory(opts?: { conversationId?: string; limit?: number; before?: string }): Promise<{ messages: Array<{ id: string; role: string; content: string; timestamp: number }> }> {
+    const url = this._url("/vwp/chat/history", {
+      conversationId: opts?.conversationId,
+      limit: opts?.limit,
+      before: opts?.before,
+    });
+    return this._fetch(url);
+  }
+
+  // --- Team API ---
+
+  async getTeam(): Promise<{ team: { businessType: string; businessName: string; members: Array<{ id: string; name: string; role: string; description: string; skills: string[]; required: boolean; active: boolean }>; updatedAt: number } }> {
+    const url = this._url("/vwp/team");
+    return this._fetch(url);
+  }
+
+  async addTeamMember(member: { id: string; name: string; role: string; description: string; skills: string[]; required: boolean; active: boolean }): Promise<{ member: unknown }> {
+    const url = this._url("/vwp/team/members");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(member),
+    });
+  }
+
+  async updateTeamMember(id: string, data: Record<string, unknown>): Promise<{ member: unknown }> {
+    const url = this._url(`/vwp/team/members/${encodeURIComponent(id)}`);
+    return this._fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTeamMember(id: string): Promise<{ deleted: boolean }> {
+    const url = this._url(`/vwp/team/members/${encodeURIComponent(id)}`);
+    return this._fetch(url, { method: "DELETE" });
+  }
+
+  // --- Onboarding API ---
+
+  async getOnboarding(): Promise<{ completed: boolean; completedAt?: number; businessType?: string }> {
+    const url = this._url("/vwp/onboarding");
+    return this._fetch(url);
+  }
+
+  async completeOnboarding(payload: { businessType: string; businessName: string; userName: string; team: unknown[] }): Promise<{ ok: boolean }> {
+    const url = this._url("/vwp/onboarding/complete");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
 }
 
 /** Singleton API client instance */

@@ -201,6 +201,56 @@ describe("createGatewayPluginRequestHandler", () => {
     expect(routeHandler).toHaveBeenCalledTimes(1);
   });
 
+  it("sets CORS headers for direct browser requests", async () => {
+    const routeHandler = vi.fn(async (_req, res: ServerResponse) => {
+      res.statusCode = 200;
+    });
+    const handler = createGatewayPluginRequestHandler({
+      registry: createTestRegistry({
+        httpRoutes: [createRoute({ path: "/demo", handler: routeHandler })],
+      }),
+      log: createPluginLog(),
+    });
+
+    const { res, setHeader } = makeMockHttpResponse();
+    const handled = await handler(
+      {
+        url: "/demo",
+        headers: { origin: "http://localhost:3000" },
+      } as IncomingMessage,
+      res,
+    );
+
+    expect(handled).toBe(true);
+    expect(setHeader).toHaveBeenCalledWith("Access-Control-Allow-Origin", "http://localhost:3000");
+    expect(setHeader).toHaveBeenCalledWith("Access-Control-Allow-Credentials", "true");
+  });
+
+  it("handles CORS preflight requests without dispatching route handlers", async () => {
+    const routeHandler = vi.fn(async () => true);
+    const handler = createGatewayPluginRequestHandler({
+      registry: createTestRegistry({
+        httpRoutes: [createRoute({ path: "/demo", handler: routeHandler })],
+      }),
+      log: createPluginLog(),
+    });
+
+    const { res, end } = makeMockHttpResponse();
+    const handled = await handler(
+      {
+        method: "OPTIONS",
+        url: "/demo",
+        headers: { origin: "http://localhost:3000" },
+      } as IncomingMessage,
+      res,
+    );
+
+    expect(handled).toBe(true);
+    expect(routeHandler).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(204);
+    expect(end).toHaveBeenCalledWith();
+  });
+
   it("logs and responds with 500 when a route throws", async () => {
     const log = createPluginLog();
     const handler = createGatewayPluginRequestHandler({

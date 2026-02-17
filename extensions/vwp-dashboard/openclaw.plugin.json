@@ -1,0 +1,9 @@
+{
+  "id": "vwp-dashboard",
+  "channels": [],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

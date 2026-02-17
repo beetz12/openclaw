@@ -14,6 +14,11 @@ interface MonitorEntry {
 
 export class HealthMonitor {
   private monitors = new Map<string, MonitorEntry>();
+  private onStuck?: (taskId: string) => void;
+
+  constructor(options?: { onStuck?: (taskId: string) => void }) {
+    this.onStuck = options?.onStuck;
+  }
 
   /** Begin monitoring a task. If it isn't completed/stopped within `timeoutMs` it is flagged as stuck. */
   startMonitoring(taskId: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): void {
@@ -29,7 +34,21 @@ export class HealthMonitor {
       timer: setInterval(
         () => {
           if (Date.now() - entry.startedAt >= entry.timeoutMs) {
-            entry.stuck = true;
+            if (!entry.stuck) {
+              entry.stuck = true;
+              // Call onStuck callback when task first becomes stuck
+              if (this.onStuck) {
+                try {
+                  this.onStuck(entry.taskId);
+                } catch (err) {
+                  // Log but don't throw - callback errors shouldn't break monitoring
+                  console.error(
+                    `[HealthMonitor] Error in onStuck callback for ${entry.taskId}:`,
+                    err,
+                  );
+                }
+              }
+            }
           }
         },
         Math.min(10_000, Math.floor(timeoutMs / 2)),

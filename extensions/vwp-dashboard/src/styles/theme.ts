@@ -1,31 +1,76 @@
 import { css } from "lit";
 
+/**
+ * Design direction: "Warm Precision"
+ * Typography: Plus Jakarta Sans (display + body), DM Mono (stats/numbers)
+ * Color story: Deep teal primary + warm coral accent, slate neutrals
+ */
 export const theme = css`
   :host {
-    /* Warm, approachable palette */
-    --color-primary: #e07842;
-    --color-primary-light: #f5a66e;
-    --color-primary-dark: #c45e2a;
-    --color-primary-bg: #fef3ec;
+    /* ── Primary (Teal) ─────────────────────────────────────────── */
+    --color-primary: #0d9488;
+    --color-primary-light: #5eead4;
+    --color-primary-dark: #0f766e;
+    --color-primary-bg: #f0fdfa;
 
-    --color-success: #2d9d5c;
-    --color-success-bg: #edf8f0;
-    --color-danger: #d14343;
-    --color-danger-bg: #fdeaea;
-    --color-warning: #d4890a;
-    --color-warning-bg: #fdf4e4;
+    /* ── Accent (Warm coral – used for urgent CTAs) ─────────────── */
+    --color-accent: #f97316;
+    --color-accent-light: #fed7aa;
+    --color-accent-dark: #c2410c;
+    --color-accent-bg: #fff7ed;
 
-    /* Neutrals */
-    --color-bg: #faf8f5;
+    /* ── Success (Emerald) ──────────────────────────────────────── */
+    --color-success: #059669;
+    --color-success-bg: #ecfdf5;
+    --color-success-dark: #065f46;
+    --color-success-light: #d1fae5;
+    --color-success-lighter: #ecfdf5;
+    --color-success-border: #a7f3d0;
+
+    /* ── Danger (Rose) ──────────────────────────────────────────── */
+    --color-danger: #e11d48;
+    --color-danger-bg: #fff1f2;
+    --color-danger-dark: #9f1239;
+    --color-danger-light: #ffe4e6;
+    --color-danger-lighter: #fff1f2;
+    --color-danger-border: #fecdd3;
+
+    /* ── Warning (Amber) ────────────────────────────────────────── */
+    --color-warning: #d97706;
+    --color-warning-bg: #fffbeb;
+    --color-warning-dark: #92400e;
+    --color-warning-light: #fef3c7;
+    --color-warning-lighter: #fffbeb;
+    --color-warning-border: #fde68a;
+
+    /* ── Info (Blue) ────────────────────────────────────────────── */
+    --color-info: #2563eb;
+    --color-info-bg: #eff6ff;
+    --color-info-light: #dbeafe;
+    --color-info-border: #bfdbfe;
+    --color-info-dark: #1e40af;
+
+    /* ── CTA / Interactive (maps to primary teal) ───────────────── */
+    --color-action: #0d9488;
+    --color-action-hover: #0f766e;
+
+    /* ── Neutrals (Slate) ───────────────────────────────────────── */
+    --color-bg: #f8fafc;
+    --color-bg-subtle: #f1f5f9;
+    --color-bg-muted: #e2e8f0;
     --color-surface: #ffffff;
-    --color-border: #e8e3dd;
-    --color-text: #1a1a1a;
-    --color-text-secondary: #6b6560;
-    --color-text-muted: #9e9690;
+    --color-border: #e2e8f0;
+    --color-border-light: #f1f5f9;
+    --color-border-input: #cbd5e1;
+    --color-text: #0f172a;
+    --color-text-secondary: #64748b;
+    --color-text-muted: #94a3b8;
+    --color-text-body: #334155;
 
-    /* Typography */
-    --font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* ── Typography ─────────────────────────────────────────────── */
+    --font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "DM Mono", "Fira Code", "SF Mono", ui-monospace, monospace;
+
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-base: 1rem;
@@ -34,26 +79,34 @@ export const theme = css`
     --font-size-2xl: 1.5rem;
     --font-size-3xl: 1.875rem;
 
-    /* Spacing */
+    /* ── Spacing (4px base) ─────────────────────────────────────── */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
     --space-4: 16px;
+    --space-5: 20px;
     --space-6: 24px;
     --space-8: 32px;
 
-    /* Radii */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    /* ── Radii (generous, modern) ───────────────────────────────── */
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
     --radius-full: 9999px;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+    /* ── Shadows (layered, refined) ─────────────────────────────── */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+    --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 
-    /* Tab bar */
-    --tab-bar-height: 64px;
+    /* ── Transitions ────────────────────────────────────────────── */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    --tab-bar-height: 72px;
   }
 `;

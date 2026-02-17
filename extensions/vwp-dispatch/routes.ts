@@ -5,6 +5,8 @@ import type { TaskRequest } from "./types.js";
 import { getBearerToken } from "../../src/gateway/http-utils.js";
 import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import * as checkpoint from "./checkpoint.js";
+import { hasDecomposition } from "./checkpoint.js";
+import { sanitizeTaskText } from "./sanitize.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
@@ -79,6 +81,14 @@ export function createDispatchHttpHandler(deps: DispatchRoutesDeps) {
           return true;
         }
         jsonResponse(res, 400, { error: "Invalid JSON body" });
+        return true;
+      }
+
+      // Sanitize the task text
+      try {
+        text = sanitizeTaskText(text);
+      } catch {
+        jsonResponse(res, 400, { error: "Task text is empty" });
         return true;
       }
 
@@ -169,6 +179,14 @@ export function createDispatchHttpHandler(deps: DispatchRoutesDeps) {
       req.method === "POST" && pathname.match(/^\/vwp\/dispatch\/confirm\/([^/]+)$/);
     if (confirmMatch) {
       const id = confirmMatch[1];
+
+      // Race guard: check if decomposition exists
+      const analyzed = await hasDecomposition(id);
+      if (!analyzed) {
+        jsonResponse(res, 409, { error: "Task not yet analyzed — please wait" });
+        return true;
+      }
+
       const data = await checkpoint.getTaskStatus(id);
       if (!data.request) {
         jsonResponse(res, 404, { error: "Task not found" });

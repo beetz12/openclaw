@@ -4,10 +4,11 @@
  */
 
 import { EventEmitter } from "node:events";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { TaskRequest } from "./types.js";
+import { atomicWriteFile } from "./atomic-write.js";
 
 type QueueEvent = "task_queued" | "task_started" | "task_completed" | "task_cancelled";
 
@@ -102,7 +103,6 @@ export class TaskQueue extends EventEmitter {
 
   private async persist(): Promise<void> {
     const state: QueueState = { active: this.active, pending: this.pending };
-    await mkdir(BASE_DIR, { recursive: true });
-    await writeFile(QUEUE_FILE, JSON.stringify(state, null, 2));
+    await atomicWriteFile(QUEUE_FILE, JSON.stringify(state, null, 2));
   }
 }
