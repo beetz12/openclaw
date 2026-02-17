@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { boardSSE } from "@/lib/sse-client";
 import { useBoardStore, type KanbanSSEEvent } from "@/store/board-store";
 import { useChatStore } from "@/store/chat-store";
+import { KanbanApiClient } from "@/lib/api-client";
 
 const CHAT_EVENT_TYPES = new Set([
   "chat_message",
@@ -30,8 +31,14 @@ export function useSse(): void {
 
     const unsubConnected = boardSSE.on("connected", () => {
       setSseConnected(true);
-      // SSE connects through the gateway, so if SSE is up the gateway is reachable
-      setGatewayConnected(true);
+      // Fetch actual gateway connection status from backend
+      const api = new KanbanApiClient();
+      api.getChatStatus().then(({ connected }) => {
+        setGatewayConnected(connected);
+      }).catch(() => {
+        // If we can't reach the status endpoint, assume disconnected
+        setGatewayConnected(false);
+      });
     });
 
     const unsubStale = boardSSE.onStaleChange((stale) => {
