@@ -18,7 +18,7 @@ const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
 export type ChatRoutesDeps = {
   gatewayToken: string | undefined;
-  gateway: GatewayClient;
+  gateway: GatewayClient | (() => GatewayClient | undefined);
   chatStore: ServerChatStore;
   onSSE?: (event: ChatSSEEvent) => void;
 };
@@ -48,7 +48,9 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 }
 
 export function createChatHttpHandler(deps: ChatRoutesDeps) {
-  const { gatewayToken, gateway, chatStore, onSSE } = deps;
+  const { gatewayToken, chatStore, onSSE } = deps;
+  const resolveGateway = (): GatewayClient | undefined =>
+    typeof deps.gateway === "function" ? deps.gateway() : deps.gateway;
 
   function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
     const token = getBearerToken(req);
@@ -110,7 +112,8 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
       await chatStore.appendMessage(conversationId, userMsg);
 
       // Check gateway connectivity
-      if (!gateway.isConnected()) {
+      const gateway = resolveGateway();
+      if (!gateway || !gateway.isConnected()) {
         jsonResponse(res, 503, { error: "Gateway not connected" });
         return true;
       }
@@ -210,6 +213,14 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
       }
 
       jsonResponse(res, 202, { messageId, conversationId });
+      return true;
+    }
+
+    // GET /vwp/chat/status — check gateway connection status
+    if (req.method === "GET" && pathname === "/vwp/chat/status") {
+      const gateway = resolveGateway();
+      const connected = !!gateway && gateway.isConnected();
+      jsonResponse(res, 200, { connected });
       return true;
     }
 
