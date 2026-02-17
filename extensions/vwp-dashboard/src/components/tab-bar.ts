@@ -1,21 +1,22 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Route } from "../router.js";
 import { navigate } from "../router.js";
+import { home, inbox, listChecks, briefcase, ellipsis } from "../styles/icons.js";
 import { theme } from "../styles/theme.js";
 
 type TabDef = {
   route: Route;
   label: string;
-  icon: string;
+  icon: TemplateResult;
 };
 
 const TABS: TabDef[] = [
-  { route: "home", label: "Home", icon: "\u{1F3E0}" },
-  { route: "queue", label: "Queue", icon: "\u{1F4E5}" },
-  { route: "tasks", label: "Tasks", icon: "\u{1F4CB}" },
-  { route: "business", label: "Business", icon: "\u{1F4BC}" },
-  { route: "more", label: "More", icon: "\u22EF" },
+  { route: "home", label: "Home", icon: home },
+  { route: "queue", label: "Queue", icon: inbox },
+  { route: "tasks", label: "Tasks", icon: listChecks },
+  { route: "business", label: "Business", icon: briefcase },
+  { route: "more", label: "More", icon: ellipsis },
 ];
 
 @customElement("vwp-tab-bar")
@@ -58,17 +59,27 @@ export class VwpTabBar extends LitElement {
         position: relative;
         min-width: 44px;
         min-height: 44px;
-        transition: color 0.15s ease;
+        transition: color 0.2s ease;
       }
 
       button[data-active] {
         color: var(--color-primary);
       }
 
+      button[data-active] .icon {
+        color: var(--color-primary);
+      }
+
       .icon {
-        font-size: 22px;
+        font-size: 24px;
         line-height: 1;
         position: relative;
+      }
+
+      .icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
       }
 
       .badge {
@@ -101,6 +112,9 @@ export class VwpTabBar extends LitElement {
   @property({ type: Number })
   queueCount = 0;
 
+  @property({ type: Number })
+  taskCount = 0;
+
   override render() {
     return html`
       <nav>
@@ -116,6 +130,11 @@ export class VwpTabBar extends LitElement {
                 ${
                   tab.route === "queue" && this.queueCount > 0
                     ? html`<span class="badge">${this.queueCount > 99 ? "99+" : this.queueCount}</span>`
+                    : ""
+                }
+                ${
+                  tab.route === "tasks" && this.taskCount > 0
+                    ? html`<span class="badge">${this.taskCount > 99 ? "99+" : this.taskCount}</span>`
                     : ""
                 }
               </span>

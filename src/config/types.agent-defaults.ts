@@ -91,6 +91,8 @@ export type CliBackendConfig = {
   imageMode?: "repeat" | "list";
   /** Serialize runs for this CLI. */
   serialize?: boolean;
+  /** Inject "Tools are disabled" into the system prompt (default: true). */
+  disableTools?: boolean;
 };
 
 export type AgentDefaultsConfig = {

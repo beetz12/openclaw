@@ -35,7 +35,8 @@ export type KanbanSSEEvent =
   | { type: "cost_update"; taskId: string; currentTokens: number; currentUsd: number }
   | { type: "approval_required"; taskId: string; subtaskId: string; actionType: string }
   | AgentSSEEvent
-  | ToolSSEEvent;
+  | ToolSSEEvent
+  | ChatSSEEvent;
 
 // --- Agent status types (Phase 5A: Mission Control) ---
 
@@ -87,3 +88,19 @@ export type ToolSSEEvent =
     }
   | { type: "tool_run_failed"; runId: string; toolName: string; error: string }
   | { type: "tool_run_cancelled"; runId: string; toolName: string };
+
+// --- Chat types (Mission Control Chat Interface) ---
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+}
+
+export type ChatSSEEvent =
+  | { type: "chat_message"; messageId: string; role: "assistant"; content: string; done: boolean }
+  | { type: "chat_stream_token"; messageId: string; token: string }
+  | { type: "chat_task_dispatched"; messageId: string; taskId: string; title: string }
+  | { type: "chat_intent_clarify"; messageId: string; question: string; options: string[] }
+  | { type: "chat_team_suggest"; messageId: string; role: string; description: string };

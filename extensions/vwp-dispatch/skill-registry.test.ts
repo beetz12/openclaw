@@ -57,7 +57,7 @@ Body`;
 
 // ── SkillRegistry with fixtures ─────────────────────────────────────────────
 
-const FIXTURE_DIR = join(import.meta.dirname!, ".test-fixtures");
+const FIXTURE_DIR = join(import.meta.dirname!, ".test-fixtures", "registry");
 
 async function createFixturePlugin(
   name: string,

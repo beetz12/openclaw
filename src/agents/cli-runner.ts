@@ -78,9 +78,10 @@ export async function runCliAgent(params: {
   const normalizedModel = normalizeCliModel(modelId, backend);
   const modelDisplay = `${params.provider}/${modelId}`;
 
+  const disableTools = backend.disableTools !== false; // default true for backwards compat
   const extraSystemPrompt = [
     params.extraSystemPrompt?.trim(),
-    "Tools are disabled in this session. Do not call tools.",
+    disableTools ? "Tools are disabled in this session. Do not call tools." : undefined,
   ]
     .filter(Boolean)
     .join("\n");

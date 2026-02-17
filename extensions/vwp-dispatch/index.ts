@@ -1,11 +1,13 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { join } from "node:path";
 import type { TaskRequest } from "./types.js";
-import { ApprovalSSE } from "../vwp-approval/sse.js";
+import { getSharedSSE } from "../vwp-approval/sse.js";
 import { AgentStateManager } from "./agent-state.js";
 import { analyzeTask } from "./analyzer.js";
 import { moveTask } from "./board-state.js";
 import { checkBudget } from "./budget.js";
+import { createChatHttpHandler } from "./chat-routes.js";
+import { ServerChatStore } from "./chat-store.js";
 import * as checkpoint from "./checkpoint.js";
 import { loadBusinessContext, loadProfile } from "./context-loader.js";
 import { getMonthlySpend } from "./cost-tracker.js";
@@ -82,7 +84,7 @@ export default {
         await queue.completeActive();
       })();
     });
-    const sse = new ApprovalSSE();
+    const sse = getSharedSSE();
     const agentState = new AgentStateManager();
     const gateway = new GatewayClient();
 
@@ -91,15 +93,30 @@ export default {
     let loadedTools: LoadedTool[] = [];
     const toolsRoot = join(process.cwd(), "tools");
 
-    // Connect to gateway in background (non-blocking)
+    // Connect to gateway in background (non-blocking).
+    // Retry because the plugin initialises before the HTTP server starts listening.
     void (async () => {
-      try {
-        await gateway.connect();
-        api.logger.info("vwp-dispatch: connected to OpenClaw Gateway");
-        sse.emit({ type: "gateway_status", connected: true });
-      } catch (err) {
-        api.logger.warn(`vwp-dispatch: gateway connection failed: ${String(err)}`);
-        sse.emit({ type: "gateway_status", connected: false });
+      const maxAttempts = 5;
+      const retryDelayMs = 2_000;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await gateway.connect();
+          api.logger.info("vwp-dispatch: connected to OpenClaw Gateway");
+          sse.emit({ type: "gateway_status", connected: true });
+          return;
+        } catch (err) {
+          if (attempt < maxAttempts) {
+            api.logger.info(
+              `vwp-dispatch: gateway not ready, retry ${attempt}/${maxAttempts} in ${retryDelayMs}ms`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          } else {
+            api.logger.warn(
+              `vwp-dispatch: gateway connection failed after ${maxAttempts} attempts: ${String(err)}`,
+            );
+            sse.emit({ type: "gateway_status", connected: false });
+          }
+        }
       }
     })();
 
@@ -181,6 +198,16 @@ export default {
       onSSE: (event) => sse.emit(event as any),
     });
     api.registerHttpHandler(toolHandler);
+
+    // Chat routes with SSE emission
+    const chatStore = new ServerChatStore();
+    const chatHandler = createChatHttpHandler({
+      gatewayToken,
+      gateway,
+      chatStore,
+      onSSE: (event) => sse.emit(event as any),
+    });
+    api.registerHttpHandler(chatHandler);
 
     // Auto-analyze tasks when they become active in the queue.
     queue.on("task_started", (task: TaskRequest) => {

@@ -1,260 +1,255 @@
 import { LitElement, css, html } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement } from "lit/decorators.js";
 import { navigate } from "../router.js";
+import { shield, bell, link2, info, channelIcon } from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 
 @customElement("vwp-more-view")
 export class MoreView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      padding: 16px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        padding: var(--space-4);
+        max-width: 600px;
+        margin: 0 auto;
+      }
 
-    h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0 0 20px;
-    }
+      h1 {
+        font-size: var(--font-size-xl);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0 0 20px;
+      }
 
-    .sections {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+      .sections {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
 
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-      padding: 16px;
-    }
+      .card {
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        padding: var(--space-4);
+      }
 
-    .card-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1f2937;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+      .card-title {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--color-text);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-bottom: var(--space-3);
+      }
 
-    .setting-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
+      .card-title svg {
+        width: 18px;
+        height: 18px;
+      }
 
-    .setting-row:last-child {
-      border-bottom: none;
-    }
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--color-border-light);
+      }
 
-    .setting-label {
-      font-size: 14px;
-      color: #374151;
-    }
+      .setting-row:last-child {
+        border-bottom: none;
+      }
 
-    .setting-note {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 2px;
-    }
+      .setting-label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-body);
+      }
 
-    .toggle {
-      position: relative;
-      width: 48px;
-      height: 28px;
-      flex-shrink: 0;
-    }
+      .setting-note {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        margin-top: 2px;
+      }
 
-    .toggle input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+      .coming-soon-label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        font-style: italic;
+        margin-left: var(--space-2);
+      }
 
-    .toggle-track {
-      position: absolute;
-      inset: 0;
-      background: #d1d5db;
-      border-radius: 14px;
-      cursor: pointer;
-      transition: background 0.2s ease;
-    }
+      .toggle {
+        position: relative;
+        width: 48px;
+        height: 28px;
+        flex-shrink: 0;
+      }
 
-    .toggle input:checked + .toggle-track {
-      background: #4a9c6d;
-    }
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
 
-    .toggle-thumb {
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 24px;
-      height: 24px;
-      background: #fff;
-      border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-      transition: transform 0.2s ease;
-      pointer-events: none;
-    }
+      .toggle-track {
+        position: absolute;
+        inset: 0;
+        background: var(--color-border-input);
+        border-radius: 14px;
+        cursor: not-allowed;
+        transition: background 0.2s ease;
+        opacity: 0.5;
+      }
 
-    .toggle input:checked ~ .toggle-thumb {
-      transform: translateX(20px);
-    }
+      .toggle-thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 24px;
+        height: 24px;
+        background: var(--color-surface);
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease;
+        pointer-events: none;
+      }
 
-    .select-wrap {
-      position: relative;
-    }
+      .select-wrap {
+        position: relative;
+      }
 
-    .select-wrap select {
-      appearance: none;
-      padding: 8px 32px 8px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-      background: #fff;
-      cursor: pointer;
-      min-height: 36px;
-    }
+      .select-wrap select {
+        appearance: none;
+        padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3);
+        border: 1px solid var(--color-border-input);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        background: var(--color-surface);
+        cursor: not-allowed;
+        min-height: 36px;
+        opacity: 0.5;
+      }
 
-    .select-wrap select:focus {
-      outline: none;
-      border-color: #4a9c6d;
-      box-shadow: 0 0 0 2px rgba(74, 156, 109, 0.2);
-    }
+      .select-wrap::after {
+        content: "\u25BC";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 10px;
+        color: var(--color-text-muted);
+        pointer-events: none;
+      }
 
-    .select-wrap::after {
-      content: "\u25BC";
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 10px;
-      color: #9ca3af;
-      pointer-events: none;
-    }
+      .channel-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 10px 0;
+        border-bottom: 1px solid var(--color-border-light);
+      }
 
-    .channel-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
+      .channel-row:last-child {
+        border-bottom: none;
+      }
 
-    .channel-row:last-child {
-      border-bottom: none;
-    }
+      .channel-icon {
+        font-size: var(--font-size-base);
+        flex-shrink: 0;
+      }
 
-    .channel-icon {
-      font-size: 16px;
-      flex-shrink: 0;
-    }
+      .channel-icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
 
-    .channel-name {
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-      flex: 1;
-    }
+      .channel-name {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--color-text-body);
+        flex: 1;
+      }
 
-    .channel-status {
-      font-size: 12px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-weight: 500;
-    }
+      .channel-status {
+        font-size: var(--font-size-xs);
+        padding: 2px var(--space-2);
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+      }
 
-    .channel-status.connected {
-      background: #d1fae5;
-      color: #065f46;
-    }
+      .channel-status.setup-required {
+        background: var(--color-warning-light);
+        color: var(--color-warning-dark);
+      }
 
-    .channel-status.disconnected {
-      background: #fee2e2;
-      color: #991b1b;
-    }
+      .channel-admin-note {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        padding-top: var(--space-2);
+        font-style: italic;
+      }
 
-    .about-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
+      .about-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--color-border-light);
+      }
 
-    .about-row:last-child {
-      border-bottom: none;
-    }
+      .about-row:last-child {
+        border-bottom: none;
+      }
 
-    .about-label {
-      font-size: 14px;
-      color: #374151;
-    }
+      .about-label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-body);
+      }
 
-    .about-value {
-      font-size: 14px;
-      color: #9ca3af;
-    }
+      .about-value {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+      }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      min-height: 44px;
-      transition: background 0.15s ease;
-    }
+      .docs-note {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        font-style: italic;
+      }
 
-    .btn-link {
-      background: none;
-      color: #4a9c6d;
-      padding: 0;
-      min-height: auto;
-      font-size: 14px;
-    }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px var(--space-4);
+        border-radius: var(--radius-md);
+        border: none;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        cursor: pointer;
+        min-height: 44px;
+        transition: background 0.15s ease;
+      }
 
-    .btn-link:hover {
-      color: #3d8a5e;
-    }
+      .btn-outline {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-body);
+        width: 100%;
+        margin-top: var(--space-2);
+      }
 
-    .btn-danger {
-      background: #fee2e2;
-      color: #991b1b;
-      width: 100%;
-      margin-top: 8px;
-    }
-
-    .btn-danger:hover {
-      background: #fecaca;
-    }
-
-    .btn-outline {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      color: #374151;
-      width: 100%;
-      margin-top: 8px;
-    }
-
-    .btn-outline:hover {
-      background: #f9fafb;
-    }
-  `;
-
-  @state() private _autoApprove = false;
-  @state() private _notifyVia = "none";
+      .btn-outline:hover {
+        background: var(--color-bg-subtle);
+      }
+    `,
+  ];
 
   render() {
     return html`
@@ -262,10 +257,13 @@ export class MoreView extends LitElement {
 
       <div class="sections">
         <div class="card">
-          <div class="card-title">\u{1F512} Trust Settings</div>
+          <div class="card-title">${shield} Trust Settings</div>
           <div class="setting-row">
             <div>
-              <div class="setting-label">Auto-approve common responses</div>
+              <div class="setting-label">
+                Auto-approve common responses
+                <span class="coming-soon-label">(coming soon)</span>
+              </div>
               <div class="setting-note">
                 Messages like order confirmations and shipping updates will be sent automatically
               </div>
@@ -273,10 +271,7 @@ export class MoreView extends LitElement {
             <label class="toggle">
               <input
                 type="checkbox"
-                .checked=${this._autoApprove}
-                @change=${(e: Event) => {
-                  this._autoApprove = (e.target as HTMLInputElement).checked;
-                }}
+                disabled
               />
               <span class="toggle-track"></span>
               <span class="toggle-thumb"></span>
@@ -285,16 +280,11 @@ export class MoreView extends LitElement {
         </div>
 
         <div class="card">
-          <div class="card-title">\u{1F514} Notifications</div>
+          <div class="card-title">${bell} Notifications</div>
           <div class="setting-row">
             <div class="setting-label">Notify me via</div>
             <div class="select-wrap">
-              <select
-                .value=${this._notifyVia}
-                @change=${(e: Event) => {
-                  this._notifyVia = (e.target as HTMLSelectElement).value;
-                }}
-              >
+              <select disabled>
                 <option value="none">None</option>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="telegram">Telegram</option>
@@ -308,33 +298,36 @@ export class MoreView extends LitElement {
         </div>
 
         <div class="card">
-          <div class="card-title">\u{1F517} Channel Connections</div>
+          <div class="card-title">${link2} Channel Connections</div>
           <div class="channel-row">
-            <span class="channel-icon">\u{1F4AC}</span>
+            <span class="channel-icon">${channelIcon("whatsapp")}</span>
             <span class="channel-name">WhatsApp</span>
-            <span class="channel-status connected">Connected</span>
+            <span class="channel-status setup-required">Setup required</span>
           </div>
           <div class="channel-row">
-            <span class="channel-icon">\u2708\uFE0F</span>
+            <span class="channel-icon">${channelIcon("telegram")}</span>
             <span class="channel-name">Telegram</span>
-            <span class="channel-status disconnected">Not connected</span>
+            <span class="channel-status setup-required">Setup required</span>
           </div>
           <div class="channel-row">
-            <span class="channel-icon">\u{1F4E7}</span>
+            <span class="channel-icon">${channelIcon("email")}</span>
             <span class="channel-name">Email</span>
-            <span class="channel-status disconnected">Not connected</span>
+            <span class="channel-status setup-required">Setup required</span>
+          </div>
+          <div class="channel-admin-note">
+            Channel connections will be configured by your admin.
           </div>
         </div>
 
         <div class="card">
-          <div class="card-title">\u2139\uFE0F About</div>
+          <div class="card-title">${info} About</div>
           <div class="about-row">
             <span class="about-label">Version</span>
             <span class="about-value">Phase 1.0</span>
           </div>
           <div class="about-row">
             <span class="about-label">Need help?</span>
-            <button class="btn btn-link">View documentation</button>
+            <span class="docs-note">Documentation coming soon</span>
           </div>
 
           <button

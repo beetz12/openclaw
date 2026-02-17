@@ -21,6 +21,22 @@ export function createGatewayPluginRequestHandler(params: {
       return false;
     }
 
+    // CORS: allow the Mission Control board (or other local UIs) to
+    // connect directly to plugin endpoints.  Next.js rewrites buffer
+    // SSE responses, so the board uses direct cross-origin requests.
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    }
+    if (req.method === "OPTIONS") {
+      res.statusCode = 204;
+      res.end();
+      return true;
+    }
+
     if (routes.length > 0) {
       const url = new URL(req.url ?? "/", "http://localhost");
       const route = routes.find((entry) => entry.path === url.pathname);

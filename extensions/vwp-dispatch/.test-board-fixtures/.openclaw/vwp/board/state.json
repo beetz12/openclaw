@@ -1,0 +1,20 @@
+{
+  "columns": {
+    "backlog": ["task-1"],
+    "todo": [],
+    "in_progress": ["task-2"],
+    "review": [],
+    "done": []
+  },
+  "positions": {
+    "task-1": {
+      "column": "backlog",
+      "position": 0
+    },
+    "task-2": {
+      "column": "in_progress",
+      "position": 0
+    }
+  },
+  "updatedAt": 1771334890864
+}

@@ -50,6 +50,7 @@ const DEFAULT_CLAUDE_BACKEND: CliBackendConfig = {
   systemPromptWhen: "first",
   clearEnv: ["ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY_OLD"],
   serialize: true,
+  disableTools: true,
 };
 
 const DEFAULT_CODEX_BACKEND: CliBackendConfig = {
@@ -74,6 +75,7 @@ const DEFAULT_CODEX_BACKEND: CliBackendConfig = {
   imageArg: "--image",
   imageMode: "repeat",
   serialize: true,
+  disableTools: true,
 };
 
 function normalizeBackendKey(key: string): string {

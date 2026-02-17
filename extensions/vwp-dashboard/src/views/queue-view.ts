@@ -3,6 +3,9 @@ import { customElement, state } from "lit/decorators.js";
 import type { PendingMessage, SSEEvent } from "../api/types.js";
 import { api } from "../api/client.js";
 import { sseClient } from "../api/sse.js";
+import { bell, sparkles } from "../styles/icons.js";
+import { sharedStyles } from "../styles/shared.js";
+import { theme } from "../styles/theme.js";
 import "../components/message-card.js";
 import "../components/approval-dialog.js";
 
@@ -10,210 +13,220 @@ type ChannelFilter = "all" | "whatsapp" | "telegram" | "email";
 
 @customElement("vwp-queue-view")
 export class QueueView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      padding: 16px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .header h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1f2937;
-      margin: 0;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 24px;
-      height: 24px;
-      padding: 0 6px;
-      border-radius: 12px;
-      background: #e07a5f;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .badge.zero {
-      background: #d1d5db;
-      color: #6b7280;
-    }
-
-    .filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-
-    .filters::-webkit-scrollbar {
-      display: none;
-    }
-
-    .filter-pill {
-      padding: 8px 16px;
-      border-radius: 20px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      font-size: 13px;
-      font-weight: 500;
-      color: #6b7280;
-      cursor: pointer;
-      white-space: nowrap;
-      min-height: 36px;
-      transition: all 0.15s ease;
-    }
-
-    .filter-pill:hover {
-      border-color: #d1d5db;
-      background: #f9fafb;
-    }
-
-    .filter-pill.active {
-      background: #4a9c6d;
-      color: #fff;
-      border-color: #4a9c6d;
-    }
-
-    .messages {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .new-banner {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 10px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #1d4ed8;
-      cursor: pointer;
-      margin-bottom: 12px;
-      min-height: 44px;
-    }
-
-    .new-banner:hover {
-      background: #dbeafe;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 16px;
-    }
-
-    .empty-state .icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .empty-state h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1f2937;
-      margin: 0 0 8px;
-    }
-
-    .empty-state p {
-      font-size: 14px;
-      color: #9ca3af;
-      margin: 0;
-    }
-
-    .load-more {
-      display: flex;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .btn-load-more {
-      padding: 10px 24px;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-      cursor: pointer;
-      min-height: 44px;
-      transition: background 0.15s ease;
-    }
-
-    .btn-load-more:hover:not(:disabled) {
-      background: #f9fafb;
-    }
-
-    .btn-load-more:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 32px;
-      color: #9ca3af;
-      font-size: 14px;
-    }
-
-    .skeleton {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .skeleton-card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    }
-
-    .skeleton-line {
-      height: 14px;
-      background: #f3f4f6;
-      border-radius: 4px;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    .skeleton-line.short {
-      width: 40%;
-    }
-
-    .skeleton-line.medium {
-      width: 70%;
-      margin-top: 8px;
-    }
-
-    @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
+  static styles = [
+    theme,
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+        padding: var(--space-4);
+        max-width: 600px;
+        margin: 0 auto;
       }
-      50% {
-        opacity: 0.4;
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-bottom: var(--space-4);
       }
-    }
-  `;
+
+      .header h1 {
+        font-size: var(--font-size-xl);
+        font-weight: 700;
+        color: var(--color-text);
+        margin: 0;
+      }
+
+      .badge {
+        min-width: 24px;
+        height: 24px;
+        padding: 0 6px;
+        border-radius: var(--radius-lg);
+        background: var(--color-primary);
+        font-size: var(--font-size-xs);
+      }
+
+      .badge.zero {
+        background: var(--color-border-input);
+        color: var(--color-text-secondary);
+      }
+
+      .filters {
+        display: flex;
+        gap: var(--space-2);
+        margin-bottom: var(--space-4);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .filters::-webkit-scrollbar {
+        display: none;
+      }
+
+      .filter-pill {
+        padding: var(--space-2) var(--space-4);
+        border-radius: 20px;
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+        min-height: 36px;
+        transition: all 0.15s ease;
+      }
+
+      .filter-pill:hover {
+        border-color: var(--color-border-input);
+        background: var(--color-bg-subtle);
+      }
+
+      .filter-pill.active {
+        background: var(--color-action);
+        color: var(--color-surface);
+        border-color: var(--color-action);
+      }
+
+      .messages {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .new-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px;
+        background: var(--color-info-bg);
+        border: 1px solid var(--color-info-border);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        color: var(--color-info);
+        cursor: pointer;
+        margin-bottom: var(--space-3);
+        min-height: 44px;
+      }
+
+      .new-banner svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .new-banner:hover {
+        background: var(--color-info-light);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 48px var(--space-4);
+      }
+
+      .empty-state .icon {
+        font-size: 48px;
+        margin-bottom: var(--space-4);
+      }
+
+      .empty-state .icon svg {
+        display: block;
+        width: 1em;
+        height: 1em;
+      }
+
+      .empty-state h2 {
+        font-size: var(--font-size-lg);
+        font-weight: 600;
+        color: var(--color-text);
+        margin: 0 0 var(--space-2);
+      }
+
+      .empty-state p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        margin: 0;
+      }
+
+      .load-more {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-4);
+      }
+
+      .btn-load-more {
+        padding: 10px var(--space-6);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-border);
+        background: var(--color-surface);
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--color-text-body);
+        cursor: pointer;
+        min-height: 44px;
+        transition: background 0.15s ease;
+      }
+
+      .btn-load-more:hover:not(:disabled) {
+        background: var(--color-bg-subtle);
+      }
+
+      .btn-load-more:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .loading {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-8);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+      }
+
+      .skeleton {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .skeleton-card {
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .skeleton-line {
+        height: 14px;
+        background: var(--color-bg-muted);
+        border-radius: var(--radius-sm);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      .skeleton-line.short {
+        width: 40%;
+      }
+
+      .skeleton-line.medium {
+        width: 70%;
+        margin-top: var(--space-2);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+    `,
+  ];
 
   @state() private _loading = true;
   @state() private _messages: PendingMessage[] = [];
@@ -287,7 +300,7 @@ export class QueueView extends LitElement {
       this._newAvailable = false;
       this._emitCount();
     } catch {
-      // API not ready
+      // API may not be ready yet; fail silently on background load
     } finally {
       this._loading = false;
       this._loadingMore = false;
@@ -318,7 +331,13 @@ export class QueueView extends LitElement {
       this._total = Math.max(0, this._total - 1);
       this._emitCount();
     } catch {
-      // Handle error silently for now
+      this.dispatchEvent(
+        new CustomEvent("show-error", {
+          detail: "Couldn't approve message — please try again",
+          bubbles: true,
+          composed: true,
+        }),
+      );
     } finally {
       const next = new Set(this._busyIds);
       next.delete(id);
@@ -342,7 +361,13 @@ export class QueueView extends LitElement {
       this._total = Math.max(0, this._total - 1);
       this._emitCount();
     } catch {
-      // Handle error silently for now
+      this.dispatchEvent(
+        new CustomEvent("show-error", {
+          detail: "Couldn't reject message — please try again",
+          bubbles: true,
+          composed: true,
+        }),
+      );
     } finally {
       const next = new Set(this._busyIds);
       next.delete(id);
@@ -389,7 +414,7 @@ export class QueueView extends LitElement {
         this._newAvailable
           ? html`
             <div class="new-banner" @click=${this._handleRefresh}>
-              \u{1F514} New messages arrived - tap to refresh
+              ${bell} New messages arrived - tap to refresh
             </div>
           `
           : nothing
@@ -412,7 +437,7 @@ export class QueueView extends LitElement {
           : this._messages.length === 0
             ? html`
                 <div class="empty-state">
-                  <div class="icon">\u2728</div>
+                  <div class="icon">${sparkles}</div>
                   <h2>All caught up!</h2>
                   <p>No messages waiting for review. Your AI assistant will notify you when new ones arrive.</p>
                 </div>

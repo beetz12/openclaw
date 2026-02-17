@@ -6,12 +6,15 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "lit": "^3.3.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "openclaw": "workspace:*",
     "vite": "7.3.1"
   },

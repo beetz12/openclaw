@@ -43,7 +43,12 @@ export type KanbanSSEEvent =
   | { type: "tool_run_output"; runId: string; stream: "stdout" | "stderr"; chunk: string }
   | { type: "tool_run_completed"; runId: string; toolName: string; exitCode: number; durationMs: number }
   | { type: "tool_run_failed"; runId: string; toolName: string; error: string }
-  | { type: "tool_run_cancelled"; runId: string; toolName: string };
+  | { type: "tool_run_cancelled"; runId: string; toolName: string }
+  | { type: "chat_message"; messageId: string; role: "assistant"; content: string; done: boolean }
+  | { type: "chat_stream_token"; messageId: string; token: string }
+  | { type: "chat_task_dispatched"; messageId: string; taskId: string; title: string }
+  | { type: "chat_intent_clarify"; messageId: string; question: string; options: string[] }
+  | { type: "chat_team_suggest"; messageId: string; role: string; description: string };
 
 const EMPTY_COLUMNS: Record<KanbanColumnId, KanbanTask[]> = {
   backlog: [],
@@ -395,6 +400,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         }));
         break;
       }
+      case "chat_message":
+      case "chat_stream_token":
+      case "chat_task_dispatched":
+      case "chat_intent_clarify":
+      case "chat_team_suggest":
+        // These are handled by the chat store, not the board store.
+        // They pass through the SSE client and are dispatched to chat store listeners.
+        break;
     }
   },
 }));

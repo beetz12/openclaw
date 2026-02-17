@@ -29,7 +29,7 @@ describe("createGatewayPluginRequestHandler", () => {
       log,
     });
     const { res } = makeResponse();
-    const handled = await handler({} as IncomingMessage, res);
+    const handled = await handler({ headers: {} } as IncomingMessage, res);
     expect(handled).toBe(false);
   });
 
@@ -49,7 +49,7 @@ describe("createGatewayPluginRequestHandler", () => {
     });
 
     const { res } = makeResponse();
-    const handled = await handler({} as IncomingMessage, res);
+    const handled = await handler({ headers: {} } as IncomingMessage, res);
     expect(handled).toBe(true);
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
@@ -78,7 +78,7 @@ describe("createGatewayPluginRequestHandler", () => {
     });
 
     const { res } = makeResponse();
-    const handled = await handler({ url: "/demo" } as IncomingMessage, res);
+    const handled = await handler({ url: "/demo", headers: {} } as IncomingMessage, res);
     expect(handled).toBe(true);
     expect(routeHandler).toHaveBeenCalledTimes(1);
     expect(fallback).not.toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe("createGatewayPluginRequestHandler", () => {
     });
 
     const { res, setHeader, end } = makeResponse();
-    const handled = await handler({} as IncomingMessage, res);
+    const handled = await handler({ headers: {} } as IncomingMessage, res);
     expect(handled).toBe(true);
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("boom"));
     expect(res.statusCode).toBe(500);
