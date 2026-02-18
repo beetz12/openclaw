@@ -122,5 +122,10 @@ export type CoworkSSEEvent =
   | { type: "cowork_tool_use"; sessionId: string; tool: string; input: string }
   | { type: "cowork_tool_result"; sessionId: string; tool: string; output: string }
   | { type: "cowork_completed"; sessionId: string; result: string; costUsd: number }
-  | { type: "cowork_error"; sessionId: string; error: string }
+  | {
+      type: "cowork_error";
+      sessionId: string;
+      error: string;
+      errorSource?: "mcp_crash" | "agent_timeout" | "sdk_error" | "cli_fallback" | "unknown";
+    }
   | { type: "cowork_approval_needed"; sessionId: string; tool: string; description: string };
