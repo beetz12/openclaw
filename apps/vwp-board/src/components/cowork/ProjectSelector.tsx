@@ -24,17 +24,13 @@ export function ProjectSelector() {
 
   const isElectron =
     typeof window !== "undefined" &&
-    (window as unknown as Record<string, unknown>).electronAPI !== undefined &&
-    (window as unknown as Record<string, { isElectron?: boolean }>).electronAPI?.isElectron === true;
+    window.electronAPI?.isElectron === true;
 
   const handleSelectFolder = async () => {
-    if (isElectron) {
-      const selected = await (
-        window as unknown as { electronAPI: { selectProjectFolder: () => Promise<string | null> } }
-      ).electronAPI.selectProjectFolder();
+    if (isElectron && window.electronAPI) {
+      const selected = await window.electronAPI.selectProjectFolder();
       if (selected) {
         setFolderPath(selected);
-        // Derive a default name from path
         const parts = selected.split("/");
         setProjectName(parts[parts.length - 1] || "");
       }
@@ -55,6 +51,7 @@ export function ProjectSelector() {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--color-text)]">
           Projects
+          {isElectron && <span className="text-[10px] bg-[var(--color-primary)]/20 text-[var(--color-primary)] px-1.5 py-0.5 rounded-full ml-2">Desktop</span>}
         </h3>
         <button
           type="button"
@@ -111,8 +108,11 @@ export function ProjectSelector() {
                 <button
                   type="button"
                   onClick={handleSelectFolder}
-                  className="shrink-0 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                  className="shrink-0 rounded-[var(--radius-sm)] bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-dark)] transition-colors flex items-center gap-1.5"
                 >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M2 4h4l2 2h6a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V5a1 1 0 011-1z" />
+                  </svg>
                   Browse
                 </button>
               )}

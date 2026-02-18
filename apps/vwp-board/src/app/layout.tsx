@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, DM_Mono } from "next/font/google";
 import { AgentToggleButton } from "@/components/layout/AgentToggleButton";
+import { DesktopBadge } from "@/components/layout/DesktopBadge";
 import { MobileAgentTab } from "@/components/layout/MobileAgentTab";
 import { SseProvider } from "@/components/layout/SseProvider";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
@@ -34,7 +35,7 @@ function Sidebar() {
   return (
     <aside className="hidden md:flex w-60 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-[var(--color-primary)]">VWP Board</h1>
+        <h1 className="text-xl font-bold text-[var(--color-primary)]">VWP Board<DesktopBadge /></h1>
       </div>
       <nav className="flex flex-col gap-1">
         <a
