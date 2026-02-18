@@ -288,6 +288,15 @@ export class KanbanApiClient {
     return this._fetch(url);
   }
 
+  async cancelChat(): Promise<{ cancelled: boolean }> {
+    const url = this._url("/vwp/chat/cancel");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+  }
+
   // --- Team API ---
 
   async getTeam(): Promise<{ team: { businessType: string; businessName: string; members: Array<{ id: string; name: string; role: string; description: string; skills: string[]; required: boolean; active: boolean }>; updatedAt: number } }> {
@@ -332,6 +341,71 @@ export class KanbanApiClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+  }
+
+  async resetOnboarding(): Promise<{ reset: boolean }> {
+    const url = this._url("/vwp/onboarding");
+    return this._fetch<{ reset: boolean }>(url, { method: "DELETE" });
+  }
+
+  // --- Project API ---
+
+  async getProjects(): Promise<{ projects: Array<{ id: string; name: string; rootPath: string; mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>; createdAt: number }> }> {
+    const url = this._url("/vwp/projects");
+    return this._fetch(url);
+  }
+
+  async registerProject(name: string, rootPath: string): Promise<{ project: { id: string; name: string; rootPath: string; mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>; createdAt: number } }> {
+    const url = this._url("/vwp/projects");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, rootPath }),
+    });
+  }
+
+  async removeProject(id: string): Promise<{ deleted: boolean }> {
+    const url = this._url(`/vwp/projects/${encodeURIComponent(id)}`);
+    return this._fetch(url, { method: "DELETE" });
+  }
+
+  async validateProject(id: string): Promise<{ valid: boolean; error?: string }> {
+    const url = this._url(`/vwp/projects/${encodeURIComponent(id)}/validate`);
+    return this._fetch(url, { method: "POST" });
+  }
+
+  // --- CoWork API ---
+
+  async startCowork(projectId: string, prompt: string, options?: { model?: string; permissionMode?: string; maxBudgetUsd?: number; maxTurns?: number }): Promise<{ sessionId: string }> {
+    const url = this._url("/vwp/cowork/start");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, prompt, ...options }),
+    });
+  }
+
+  async sendCoworkMessage(message: string): Promise<{ ok: boolean }> {
+    const url = this._url("/vwp/cowork/send");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  async cancelCowork(): Promise<{ cancelled: boolean }> {
+    const url = this._url("/vwp/cowork/cancel");
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+  }
+
+  async getCoworkStatus(): Promise<{ session: { id: string; projectId: string; status: string; startedAt: number } | null }> {
+    const url = this._url("/vwp/cowork/status");
+    return this._fetch(url);
   }
 }
 

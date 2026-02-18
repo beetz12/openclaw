@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, DM_Mono } from "next/font/google";
 import { AgentToggleButton } from "@/components/layout/AgentToggleButton";
 import { MobileAgentTab } from "@/components/layout/MobileAgentTab";
 import { SseProvider } from "@/components/layout/SseProvider";
+import { OnboardingGuard } from "@/components/OnboardingGuard";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -68,6 +69,17 @@ function Sidebar() {
           Tools
         </a>
         <a
+          href="/cowork"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 5h14a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z" />
+            <path d="M7 15v2M13 15v2M5 17h10" />
+            <path d="M6 9l2 2 4-4" />
+          </svg>
+          CoWork
+        </a>
+        <a
           href="/cost"
           className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
         >
@@ -128,14 +140,15 @@ function TabBar() {
         Tools
       </a>
       <a
-        href="/cost"
+        href="/cowork"
         className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="10" cy="10" r="8" />
-          <path d="M10 5v10M7.5 7.5h4a1.5 1.5 0 010 3H8a1.5 1.5 0 000 3h4.5" />
+          <path d="M3 5h14a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z" />
+          <path d="M7 15v2M13 15v2M5 17h10" />
+          <path d="M6 9l2 2 4-4" />
         </svg>
-        Cost
+        CoWork
       </a>
       <a
         href="/settings"
@@ -165,7 +178,7 @@ export default function RootLayout({
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col md:flex-row">
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden pb-[var(--tab-bar-height)] md:pb-0">
-              {children}
+              <OnboardingGuard>{children}</OnboardingGuard>
             </main>
           </div>
         </div>
