@@ -105,6 +105,12 @@ export class BoardSSEClient {
       "agent_disconnected",
       "agent_log",
       "gateway_status",
+      // Workspace tool events
+      "tool_run_started",
+      "tool_run_output",
+      "tool_run_completed",
+      "tool_run_failed",
+      "tool_run_cancelled",
       // Chat events
       "chat_message",
       "chat_stream_token",

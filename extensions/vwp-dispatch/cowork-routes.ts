@@ -2,14 +2,17 @@
  * HTTP routes for CoWork agent sessions.
  *
  * Routes:
- *   POST /vwp/cowork/start     — start a cowork session on a project
- *   POST /vwp/cowork/send      — send follow-up message to active session
- *   POST /vwp/cowork/cancel    — cancel active session
- *   GET  /vwp/cowork/status    — get active session info
- *   GET  /vwp/cowork/sessions  — list recent sessions
+ *   POST /vwp/cowork/start              — start a cowork session on a project
+ *   POST /vwp/cowork/send               — send follow-up message to active session
+ *   POST /vwp/cowork/cancel             — cancel active session
+ *   POST /vwp/cowork/:sessionId/undo    — undo a completed session via git stash pop
+ *   GET  /vwp/cowork/status             — get active session info
+ *   GET  /vwp/cowork/sessions           — list recent sessions
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { CoworkSSEEvent } from "./kanban-types.js";
 import type { Project } from "./project-registry.js";
 import { getBearerToken } from "../../src/gateway/http-utils.js";
@@ -20,7 +23,10 @@ import {
   sendToCoworkSession,
   getActiveSession,
   getRecentSessions,
+  getSessionById,
 } from "./cowork-agent.js";
+
+const execFileAsync = promisify(execFile);
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
@@ -128,8 +134,10 @@ export function createCoworkHttpHandler(deps: CoworkRoutesDeps) {
       }
 
       // Validate permissionMode
-      const permissionMode =
-        body.permissionMode === "bypassPermissions" ? "bypassPermissions" : "acceptEdits";
+      const validModes = ["ask", "acceptEdits", "bypassPermissions"] as const;
+      const permissionMode = validModes.includes(body.permissionMode as any)
+        ? (body.permissionMode as (typeof validModes)[number])
+        : "acceptEdits";
 
       try {
         const session = await startCoworkSession({
@@ -236,6 +244,41 @@ export function createCoworkHttpHandler(deps: CoworkRoutesDeps) {
         error: s.error,
       }));
       jsonResponse(res, 200, { sessions: recent });
+      return true;
+    }
+
+    // POST /vwp/cowork/:sessionId/undo — undo a cowork session via git stash pop
+    const undoMatch = pathname.match(/^\/vwp\/cowork\/([^\/]+)\/undo$/);
+    if (req.method === "POST" && undoMatch) {
+      const sessionId = undoMatch[1];
+      const session = getSessionById(sessionId);
+      if (!session) {
+        jsonResponse(res, 404, { error: "Session not found" });
+        return true;
+      }
+      if (session.status === "running") {
+        jsonResponse(res, 409, { error: "Cannot undo a running session" });
+        return true;
+      }
+      if (!session.stashRef) {
+        jsonResponse(res, 400, { error: "No checkpoint available for this session" });
+        return true;
+      }
+
+      const project = await deps.getProject(session.projectId);
+      if (!project) {
+        jsonResponse(res, 404, { error: `Project '${session.projectId}' not found` });
+        return true;
+      }
+
+      try {
+        await execFileAsync("git", ["stash", "pop", session.stashRef], { cwd: project.rootPath });
+        jsonResponse(res, 200, { undone: true, sessionId, stashRef: session.stashRef });
+      } catch (err) {
+        jsonResponse(res, 500, {
+          error: err instanceof Error ? err.message : "Git stash pop failed",
+        });
+      }
       return true;
     }
 

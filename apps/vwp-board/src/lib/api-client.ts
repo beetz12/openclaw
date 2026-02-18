@@ -407,6 +407,20 @@ export class KanbanApiClient {
     const url = this._url("/vwp/cowork/status");
     return this._fetch(url);
   }
+
+  async updateProjectMcpServers(projectId: string, servers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>): Promise<{ project: { id: string; name: string; rootPath: string; mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>; createdAt: number } }> {
+    const url = this._url(`/vwp/projects/${encodeURIComponent(projectId)}/mcp-servers`);
+    return this._fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ servers }),
+    });
+  }
+
+  async undoCoworkSession(sessionId: string): Promise<{ undone: boolean }> {
+    const url = this._url(`/vwp/cowork/${encodeURIComponent(sessionId)}/undo`);
+    return this._fetch(url, { method: "POST" });
+  }
 }
 
 /** Singleton API client instance */
