@@ -328,6 +328,8 @@
     "ui:build": "node scripts/ui.js build",
     "ui:dev": "node scripts/ui.js dev",
     "ui:install": "node scripts/ui.js install",
+    "vwp:desktop:build": "pnpm --filter vwp-desktop build",
+    "vwp:desktop:dev": "pnpm --filter vwp-desktop dev",
     "vwp:start": "bash scripts/start-vwp.sh",
     "vwp:start:channels": "bash scripts/start-vwp.sh --channels",
     "vwp:stop": "bash scripts/stop-vwp.sh"
