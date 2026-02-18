@@ -1,0 +1,20 @@
+{
+  "name": "vwp-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mission Control Desktop — Electron wrapper for VWP Board",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev": "tsc && electron .",
+    "build": "tsc && electron-builder",
+    "start": "electron .",
+    "tsc": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
