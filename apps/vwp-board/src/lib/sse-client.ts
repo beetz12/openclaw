@@ -111,6 +111,15 @@ export class BoardSSEClient {
       "chat_task_dispatched",
       "chat_intent_clarify",
       "chat_team_suggest",
+      "chat_thinking",
+      // CoWork events
+      "cowork_started",
+      "cowork_text",
+      "cowork_tool_use",
+      "cowork_tool_result",
+      "cowork_completed",
+      "cowork_error",
+      "cowork_approval_needed",
     ];
 
     for (const type of eventTypes) {

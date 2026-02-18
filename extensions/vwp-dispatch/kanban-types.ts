@@ -36,7 +36,8 @@ export type KanbanSSEEvent =
   | { type: "approval_required"; taskId: string; subtaskId: string; actionType: string }
   | AgentSSEEvent
   | ToolSSEEvent
-  | ChatSSEEvent;
+  | ChatSSEEvent
+  | CoworkSSEEvent;
 
 // --- Agent status types (Phase 5A: Mission Control) ---
 
@@ -58,7 +59,7 @@ export type AgentSSEEvent =
   | { type: "agent_connected"; agent: AgentInfo }
   | { type: "agent_disconnected"; agentId: string }
   | { type: "agent_log"; agentId: string; taskId: string; message: string; timestamp: number }
-  | { type: "gateway_status"; connected: boolean };
+  | { type: "gateway_status"; connected: boolean; backendType?: "cli" | "embedded" };
 
 // --- Tool run types (Workspace Tools Integration) ---
 
@@ -96,6 +97,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  error?: boolean;
 }
 
 export type ChatSSEEvent =
@@ -103,4 +105,22 @@ export type ChatSSEEvent =
   | { type: "chat_stream_token"; messageId: string; token: string }
   | { type: "chat_task_dispatched"; messageId: string; taskId: string; title: string }
   | { type: "chat_intent_clarify"; messageId: string; question: string; options: string[] }
-  | { type: "chat_team_suggest"; messageId: string; role: string; description: string };
+  | { type: "chat_team_suggest"; messageId: string; role: string; description: string }
+  | {
+      type: "chat_thinking";
+      messageId: string;
+      status: "processing" | "queued";
+      elapsed_ms: number;
+      position?: number;
+    };
+
+// --- CoWork types (Mission Control CoWork) ---
+
+export type CoworkSSEEvent =
+  | { type: "cowork_started"; sessionId: string; projectId: string }
+  | { type: "cowork_text"; sessionId: string; text: string }
+  | { type: "cowork_tool_use"; sessionId: string; tool: string; input: string }
+  | { type: "cowork_tool_result"; sessionId: string; tool: string; output: string }
+  | { type: "cowork_completed"; sessionId: string; result: string; costUsd: number }
+  | { type: "cowork_error"; sessionId: string; error: string }
+  | { type: "cowork_approval_needed"; sessionId: string; tool: string; description: string };
