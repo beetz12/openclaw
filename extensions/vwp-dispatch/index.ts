@@ -9,13 +9,17 @@ import { checkBudget } from "./budget.js";
 import { createChatHttpHandler } from "./chat-routes.js";
 import { ServerChatStore } from "./chat-store.js";
 import * as checkpoint from "./checkpoint.js";
+import { checkCliHealth } from "./cli-health-check.js";
 import { loadBusinessContext, loadProfile } from "./context-loader.js";
 import { getMonthlySpend } from "./cost-tracker.js";
+import { createCoworkHttpHandler } from "./cowork-routes.js";
 import { GatewayClient } from "./gateway-client.js";
 import { HealthMonitor } from "./health-monitor.js";
 import { createKanbanHttpHandler } from "./kanban-routes.js";
 import { createMemoryClient, MemorySync } from "./memory/index.js";
 import { enrichDecomposition, formatEnrichmentPrompt } from "./memory/index.js";
+import { createOnboardingHttpHandler } from "./onboarding.js";
+import { createProjectHttpHandler, loadProjects } from "./project-registry.js";
 import { createDispatchHttpHandler } from "./routes.js";
 import { ShutdownManager } from "./shutdown.js";
 import { matchSkills } from "./skill-matcher.js";
@@ -23,6 +27,7 @@ import { SkillRegistry } from "./skill-registry.js";
 import { cleanupOldTasks } from "./task-cleanup.js";
 import { TaskQueue } from "./task-queue.js";
 import { assembleTeam } from "./team-assembler.js";
+import { createTeamHttpHandler } from "./team-config.js";
 import { launchTeam } from "./team-launcher.js";
 import { discoverTools, type LoadedTool } from "./tool-manifest.js";
 import { createToolHttpHandler } from "./tool-routes.js";
@@ -90,6 +95,7 @@ export default {
     // gateway.start hook.  The plugin registers before the HTTP server is
     // listening, so env vars may not reflect the real port yet.
     let gateway: GatewayClient | undefined;
+    let detectedBackendType: "cli" | "embedded" = "embedded";
 
     // Tool runner for workspace tool execution
     const toolRunner = new ToolRunner({ maxConcurrent: 3 });
@@ -118,6 +124,30 @@ export default {
           await gateway.connect();
           api.logger.info(`vwp-dispatch: connected to OpenClaw Gateway on port ${event.port}`);
           sse.emit({ type: "gateway_status", connected: true });
+
+          // Detect CLI backend mode from config
+          const primaryModel = api.config.agents?.defaults?.model?.primary ?? "";
+          const providerPart = primaryModel.split("/")[0] ?? "";
+          const cliMode = providerPart === "claude-cli" || providerPart === "codex-cli";
+
+          if (cliMode) {
+            detectedBackendType = "cli";
+            const command = providerPart === "codex-cli" ? "codex" : "claude";
+            const healthResult = await checkCliHealth(command);
+
+            if (healthResult.available) {
+              api.logger.warn(
+                `vwp-dispatch: CLI backend active (${command} ${healthResult.version ?? "unknown"}) — subprocess runs with --dangerously-skip-permissions`,
+              );
+            } else {
+              api.logger.error(
+                `vwp-dispatch: CLI backend configured but ${command} not available: ${healthResult.error}`,
+              );
+            }
+
+            sse.emit({ type: "gateway_status", connected: true, backendType: "cli" } as any);
+          }
+
           return;
         } catch (err) {
           if (attempt < maxAttempts) {
@@ -211,8 +241,33 @@ export default {
       gateway: () => gateway,
       chatStore,
       onSSE: (event) => sse.emit(event as any),
+      getBackendType: () => detectedBackendType,
     });
     api.registerHttpHandler(chatHandler);
+
+    // Onboarding routes
+    const onboardingHandler = createOnboardingHttpHandler({ gatewayToken });
+    api.registerHttpHandler(onboardingHandler);
+
+    // Team config routes
+    const teamHandler = createTeamHttpHandler({ gatewayToken });
+    api.registerHttpHandler(teamHandler);
+
+    // Project registry routes
+    const projectHandler = createProjectHttpHandler({ gatewayToken });
+    api.registerHttpHandler(projectHandler);
+
+    // CoWork agent session routes
+    const coworkHandler = createCoworkHttpHandler({
+      gatewayToken,
+      onSSE: (event) => sse.emit(event as any),
+      getProjects: () => loadProjects(),
+      getProject: async (id) => {
+        const projects = await loadProjects();
+        return projects.find((p) => p.id === id) ?? null;
+      },
+    });
+    api.registerHttpHandler(coworkHandler);
 
     // Auto-analyze tasks when they become active in the queue.
     queue.on("task_started", (task: TaskRequest) => {

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { boardSSE } from "@/lib/sse-client";
 import { useBoardStore, type KanbanSSEEvent } from "@/store/board-store";
 import { useChatStore } from "@/store/chat-store";
+import { useCoworkStore } from "@/store/cowork-store";
 import { KanbanApiClient } from "@/lib/api-client";
 
 const CHAT_EVENT_TYPES = new Set([
@@ -12,6 +13,17 @@ const CHAT_EVENT_TYPES = new Set([
   "chat_task_dispatched",
   "chat_intent_clarify",
   "chat_team_suggest",
+  "chat_thinking",
+]);
+
+const COWORK_EVENT_TYPES = new Set([
+  "cowork_started",
+  "cowork_text",
+  "cowork_tool_use",
+  "cowork_tool_result",
+  "cowork_completed",
+  "cowork_error",
+  "cowork_approval_needed",
 ]);
 
 /**
@@ -25,6 +37,7 @@ export function useSse(): void {
   const setSseStale = useBoardStore((s) => s.setSseStale);
   const handleChatSSEEvent = useChatStore((s) => s.handleChatSSEEvent);
   const setGatewayConnected = useChatStore((s) => s.setGatewayConnected);
+  const handleCoworkEvent = useCoworkStore((s) => s.handleCoworkEvent);
 
   useEffect(() => {
     boardSSE.connect();
@@ -64,6 +77,15 @@ export function useSse(): void {
           }
         }
 
+        // Forward cowork events to the cowork store
+        if (COWORK_EVENT_TYPES.has(event.type)) {
+          try {
+            handleCoworkEvent(event);
+          } catch {
+            // Don't let one event break the pipeline
+          }
+        }
+
         // Sync gateway_status to chat store
         if (event.type === "gateway_status") {
           setGatewayConnected((event as any).connected);
@@ -79,5 +101,5 @@ export function useSse(): void {
       setSseConnected(false);
       setSseStale(false);
     };
-  }, [handleSSEEvent, setSseConnected, setSseStale, handleChatSSEEvent, setGatewayConnected]);
+  }, [handleSSEEvent, setSseConnected, setSseStale, handleChatSSEEvent, setGatewayConnected, handleCoworkEvent]);
 }
