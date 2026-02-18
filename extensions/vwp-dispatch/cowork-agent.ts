@@ -34,7 +34,7 @@ export interface CoworkStartParams {
   onEvent: (event: CoworkSSEEvent) => void;
   maxBudgetUsd?: number;
   maxTurns?: number;
-  permissionMode?: "acceptEdits" | "bypassPermissions";
+  permissionMode?: "ask" | "acceptEdits" | "bypassPermissions";
 }
 
 // --- Session store (in-memory, last 20) ---
@@ -50,6 +50,21 @@ export function getActiveSession(): CoworkSession | null {
 
 export function getRecentSessions(): CoworkSession[] {
   return [...sessions];
+}
+
+export function getSessionById(id: string): CoworkSession | null {
+  return sessions.find((s) => s.id === id) ?? null;
+}
+
+// --- Error categorization ---
+
+function categorizeError(
+  message: string,
+): "mcp_crash" | "agent_timeout" | "sdk_error" | "cli_fallback" | "unknown" {
+  const lower = message.toLowerCase();
+  if (lower.includes("mcp") || lower.includes("server")) return "mcp_crash";
+  if (lower.includes("timeout")) return "agent_timeout";
+  return "sdk_error";
 }
 
 // --- Git checkpoint ---
@@ -168,6 +183,7 @@ async function runWithSdk(
               type: "cowork_error",
               sessionId: session.id,
               error: errMsg,
+              errorSource: categorizeError(errMsg),
             });
           }
           break;
@@ -256,6 +272,7 @@ export async function startCoworkSession(params: CoworkStartParams): Promise<Cow
           type: "cowork_error",
           sessionId: session.id,
           error: session.error,
+          errorSource: "cli_fallback",
         });
       }
     } finally {

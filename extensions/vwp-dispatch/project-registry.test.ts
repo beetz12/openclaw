@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
-import { mkdtemp, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -29,7 +29,7 @@ vi.mock("./atomic-write.js", () => ({
   },
 }));
 
-const { createProjectHttpHandler } = await import("./project-registry.ts");
+const { createProjectHttpHandler, discoverMcpConfig } = await import("./project-registry.ts");
 
 // -- Mock helpers ------------------------------------------------------------
 
@@ -405,6 +405,302 @@ describe("project-registry routes", () => {
       await handler(req, res);
 
       expect(res._status).toBe(404);
+    });
+
+    it("includes discoveredMcpServers from .mcp.json", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Write .mcp.json into the project dir
+        await writeFile(
+          join(projectDir, ".mcp.json"),
+          JSON.stringify({
+            "my-server": { command: "node", args: ["server.js"] },
+          }),
+        );
+
+        // Register the project
+        const postReq = createMockReq("POST", "/vwp/projects", {
+          id: "discover-validate",
+          name: "Discover Validate",
+          rootPath: projectDir,
+        });
+        await handler(postReq, createMockRes());
+
+        // Validate
+        const req = createMockReq("POST", "/vwp/projects/discover-validate/validate");
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        const body = res._body as Record<string, unknown>;
+        expect(body.valid).toBe(true);
+        const discovered = body.discoveredMcpServers as Record<string, unknown>;
+        expect(discovered).toHaveProperty("my-server");
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("POST /vwp/projects/:id/mcp-servers", () => {
+    it("updates MCP servers for an existing project", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Register a project first
+        const postReq = createMockReq("POST", "/vwp/projects", {
+          id: "mcp-proj",
+          name: "MCP Project",
+          rootPath: projectDir,
+        });
+        const postRes = createMockRes();
+        await handler(postReq, postRes);
+        expect(postRes._status).toBe(201);
+
+        // Update MCP servers
+        const req = createMockReq("POST", "/vwp/projects/mcp-proj/mcp-servers", {
+          servers: {
+            "my-server": { command: "node", args: ["server.js"], env: { PORT: "3000" } },
+            "another-server": { command: "python", args: ["-m", "mcp_server"] },
+          },
+        });
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        const body = res._body as Record<string, unknown>;
+        expect(body.id).toBe("mcp-proj");
+        const servers = body.mcpServers as Record<string, unknown>;
+        expect(servers).toHaveProperty("my-server");
+        expect(servers).toHaveProperty("another-server");
+        const myServer = servers["my-server"] as Record<string, unknown>;
+        expect(myServer.command).toBe("node");
+        expect(myServer.args).toEqual(["server.js"]);
+        expect(myServer.env).toEqual({ PORT: "3000" });
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns 404 for nonexistent project", async () => {
+      const req = createMockReq("POST", "/vwp/projects/nonexistent/mcp-servers", {
+        servers: { s: { command: "node", args: [] } },
+      });
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(404);
+    });
+
+    it("returns 400 for invalid body", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Register a project first
+        const postReq = createMockReq("POST", "/vwp/projects", {
+          id: "mcp-bad",
+          name: "MCP Bad",
+          rootPath: projectDir,
+        });
+        await handler(postReq, createMockRes());
+
+        // Send invalid body (missing 'servers' key)
+        const req = createMockReq("POST", "/vwp/projects/mcp-bad/mcp-servers", {
+          notServers: { x: 1 },
+        });
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(400);
+        const body = res._body as Record<string, unknown>;
+        expect(body.error).toMatch(/invalid mcp server data/i);
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns 401 without auth token", async () => {
+      const req = createMockReq("POST", "/vwp/projects/some-proj/mcp-servers", {
+        servers: {},
+      });
+      req.headers = { authorization: "" };
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(401);
+    });
+
+    it("replaces all MCP servers (not merges)", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Register with initial servers
+        const postReq = createMockReq("POST", "/vwp/projects", {
+          id: "mcp-replace",
+          name: "MCP Replace",
+          rootPath: projectDir,
+          mcpServers: {
+            "old-server": { command: "old", args: [] },
+          },
+        });
+        await handler(postReq, createMockRes());
+
+        // Replace with new servers
+        const req = createMockReq("POST", "/vwp/projects/mcp-replace/mcp-servers", {
+          servers: {
+            "new-server": { command: "new", args: ["--flag"] },
+          },
+        });
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(200);
+        const body = res._body as Record<string, unknown>;
+        const servers = body.mcpServers as Record<string, unknown>;
+        expect(servers).not.toHaveProperty("old-server");
+        expect(servers).toHaveProperty("new-server");
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("discoverMcpConfig", () => {
+    it("discovers servers from a valid .mcp.json", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-mcp-"));
+      try {
+        await writeFile(
+          join(projectDir, ".mcp.json"),
+          JSON.stringify({
+            "file-server": { command: "npx", args: ["@mcp/server-fs"], env: { ROOT: "/tmp" } },
+            "code-search": { command: "node", args: ["search.js"] },
+          }),
+        );
+
+        const result = await discoverMcpConfig(projectDir);
+        expect(Object.keys(result)).toHaveLength(2);
+        expect(result["file-server"]).toEqual({
+          command: "npx",
+          args: ["@mcp/server-fs"],
+          env: { ROOT: "/tmp" },
+        });
+        expect(result["code-search"]).toEqual({
+          command: "node",
+          args: ["search.js"],
+          env: {},
+        });
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns empty object when .mcp.json is missing", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-mcp-"));
+      try {
+        const result = await discoverMcpConfig(projectDir);
+        expect(result).toEqual({});
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns empty object when .mcp.json is malformed", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-mcp-"));
+      try {
+        await writeFile(join(projectDir, ".mcp.json"), "not valid json {{{{");
+
+        const result = await discoverMcpConfig(projectDir);
+        expect(result).toEqual({});
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("skips entries without a command field", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-mcp-"));
+      try {
+        await writeFile(
+          join(projectDir, ".mcp.json"),
+          JSON.stringify({
+            "valid-server": { command: "node", args: ["s.js"] },
+            "no-command": { args: ["something"] },
+            "not-object": "just a string",
+          }),
+        );
+
+        const result = await discoverMcpConfig(projectDir);
+        expect(Object.keys(result)).toHaveLength(1);
+        expect(result).toHaveProperty("valid-server");
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("MCP auto-discovery merge behavior", () => {
+    it("merges discovered servers during project registration", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Write .mcp.json with a discovered server
+        await writeFile(
+          join(projectDir, ".mcp.json"),
+          JSON.stringify({
+            "discovered-server": { command: "node", args: ["discovered.js"] },
+          }),
+        );
+
+        // Register without user-configured MCP servers
+        const req = createMockReq("POST", "/vwp/projects", {
+          id: "merge-proj",
+          name: "Merge Project",
+          rootPath: projectDir,
+        });
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(201);
+        const body = res._body as Record<string, unknown>;
+        const servers = body.mcpServers as Record<string, unknown>;
+        expect(servers).toHaveProperty("discovered-server");
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    it("user-configured servers take priority over discovered servers", async () => {
+      const projectDir = await mkdtemp(join(tmpdir(), "vwp-proj-"));
+      try {
+        // Write .mcp.json with a server that will be overridden
+        await writeFile(
+          join(projectDir, ".mcp.json"),
+          JSON.stringify({
+            "shared-name": { command: "discovered-cmd", args: ["--discovered"] },
+            "only-discovered": { command: "disc-only", args: [] },
+          }),
+        );
+
+        // Register with a user server that has the same name as a discovered one
+        const req = createMockReq("POST", "/vwp/projects", {
+          id: "priority-proj",
+          name: "Priority Project",
+          rootPath: projectDir,
+          mcpServers: {
+            "shared-name": { command: "user-cmd", args: ["--user"] },
+          },
+        });
+        const res = createMockRes();
+        await handler(req, res);
+
+        expect(res._status).toBe(201);
+        const body = res._body as Record<string, unknown>;
+        const servers = body.mcpServers as Record<string, { command: string; args: string[] }>;
+
+        // User config wins for shared name
+        expect(servers["shared-name"].command).toBe("user-cmd");
+        expect(servers["shared-name"].args).toEqual(["--user"]);
+
+        // Discovered-only server is still included
+        expect(servers["only-discovered"].command).toBe("disc-only");
+      } finally {
+        await rm(projectDir, { recursive: true, force: true });
+      }
     });
   });
 });

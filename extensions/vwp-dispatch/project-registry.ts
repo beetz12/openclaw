@@ -7,6 +7,7 @@
  *   GET    /vwp/projects/:id           - get project details
  *   DELETE /vwp/projects/:id           - unregister a project
  *   POST   /vwp/projects/:id/validate  - check path still exists + basic status
+ *   POST   /vwp/projects/:id/mcp-servers - update per-project MCP server config
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -47,6 +48,10 @@ const CreateProjectSchema = z.object({
   mcpServers: z.record(z.string(), McpServerSchema).default({}),
 });
 
+const UpdateMcpServersSchema = z.object({
+  servers: z.record(z.string(), McpServerSchema),
+});
+
 // --- Path validation ---
 
 /**
@@ -77,6 +82,47 @@ async function validateDirectoryPath(path: string): Promise<string | null> {
     return resolved;
   } catch {
     return null;
+  }
+}
+
+// --- MCP auto-discovery ---
+
+/**
+ * Discover MCP server configuration from a `.mcp.json` file in the project root.
+ * Returns discovered servers or an empty object if the file is missing or malformed.
+ */
+export async function discoverMcpConfig(
+  rootPath: string,
+): Promise<Record<string, { command: string; args: string[]; env: Record<string, string> }>> {
+  try {
+    const raw = await readFile(join(rootPath, ".mcp.json"), "utf-8");
+    const data = JSON.parse(raw);
+    if (typeof data !== "object" || data === null || Array.isArray(data)) return {};
+
+    const result: Record<string, { command: string; args: string[]; env: Record<string, string> }> =
+      {};
+    for (const [name, value] of Object.entries(data)) {
+      if (typeof value !== "object" || value === null) continue;
+      const entry = value as Record<string, unknown>;
+      if (typeof entry.command !== "string") continue;
+      result[name] = {
+        command: entry.command,
+        args: Array.isArray(entry.args)
+          ? entry.args.filter((a): a is string => typeof a === "string")
+          : [],
+        env:
+          typeof entry.env === "object" && entry.env !== null
+            ? Object.fromEntries(
+                Object.entries(entry.env as Record<string, unknown>).filter(
+                  (kv): kv is [string, string] => typeof kv[1] === "string",
+                ),
+              )
+            : {},
+      };
+    }
+    return result;
+  } catch {
+    return {};
   }
 }
 
@@ -193,9 +239,14 @@ export function createProjectHttpHandler(deps: ProjectRegistryDeps, projectsFile
         return true;
       }
 
+      // Auto-discover MCP servers from .mcp.json; user-configured servers take priority
+      const discovered = await discoverMcpConfig(resolvedPath);
+      const mergedServers = { ...discovered, ...parsed.data.mcpServers };
+
       const project: Project = {
         ...parsed.data,
         rootPath: resolvedPath,
+        mcpServers: mergedServers,
         createdAt: Date.now(),
       };
 
@@ -242,6 +293,44 @@ export function createProjectHttpHandler(deps: ProjectRegistryDeps, projectsFile
       return true;
     }
 
+    // POST /vwp/projects/:id/mcp-servers — update per-project MCP server config
+    const mcpMatch =
+      req.method === "POST" && pathname.match(/^\/vwp\/projects\/([^/]+)\/mcp-servers$/);
+    if (mcpMatch) {
+      const projectId = decodeURIComponent(mcpMatch[1]);
+
+      let body: unknown;
+      try {
+        const raw = await readBody(req);
+        body = JSON.parse(raw);
+      } catch (err) {
+        if (err instanceof Error && err.message === "body_too_large") {
+          jsonResponse(res, 413, { error: "Request body too large" });
+          return true;
+        }
+        jsonResponse(res, 400, { error: "Invalid JSON body" });
+        return true;
+      }
+
+      const parsed = UpdateMcpServersSchema.safeParse(body);
+      if (!parsed.success) {
+        jsonResponse(res, 400, { error: "Invalid MCP server data", details: parsed.error.issues });
+        return true;
+      }
+
+      const projects = await loadProjects(filePath);
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) {
+        jsonResponse(res, 404, { error: `Project '${projectId}' not found` });
+        return true;
+      }
+
+      project.mcpServers = parsed.data.servers;
+      await saveProjects(filePath, projects);
+      jsonResponse(res, 200, project);
+      return true;
+    }
+
     // POST /vwp/projects/:id/validate — check path still exists
     const validateMatch =
       req.method === "POST" && pathname.match(/^\/vwp\/projects\/([^/]+)\/validate$/);
@@ -257,10 +346,14 @@ export function createProjectHttpHandler(deps: ProjectRegistryDeps, projectsFile
       const resolvedPath = await validateDirectoryPath(project.rootPath);
       const valid = resolvedPath !== null;
 
+      // Auto-discover MCP servers if path is valid
+      const discoveredMcpServers = valid ? await discoverMcpConfig(project.rootPath) : {};
+
       jsonResponse(res, 200, {
         projectId: project.id,
         rootPath: project.rootPath,
         valid,
+        discoveredMcpServers,
         ...(valid ? { resolvedPath } : { error: "Path does not exist or is not a directory" }),
       });
       return true;

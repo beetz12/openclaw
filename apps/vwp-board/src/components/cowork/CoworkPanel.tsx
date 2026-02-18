@@ -11,6 +11,7 @@ const MODELS = [
 ];
 
 const PERMISSION_MODES = [
+  { value: "ask", label: "Ask for Everything (safest)" },
   { value: "acceptEdits", label: "Accept Edits (recommended)" },
   { value: "bypassPermissions", label: "Bypass Permissions (power user)" },
 ];
@@ -23,7 +24,7 @@ export function CoworkPanel() {
 
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("claude-sonnet-4-6");
-  const [permissionMode, setPermissionMode] = useState<"acceptEdits" | "bypassPermissions">("acceptEdits");
+  const [permissionMode, setPermissionMode] = useState<"ask" | "acceptEdits" | "bypassPermissions">("acceptEdits");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState("5.00");
   const [showOptions, setShowOptions] = useState(false);
 

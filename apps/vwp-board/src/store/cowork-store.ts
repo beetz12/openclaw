@@ -22,7 +22,7 @@ export interface CoworkSession {
 
 export interface CoworkOptions {
   model?: string;
-  permissionMode?: "acceptEdits" | "bypassPermissions";
+  permissionMode?: "ask" | "acceptEdits" | "bypassPermissions";
   maxBudgetUsd?: number;
   maxTurns?: number;
 }
@@ -41,7 +41,7 @@ export type CoworkSSEEvent =
   | { type: "cowork_tool_use"; sessionId: string; tool: string; input: string }
   | { type: "cowork_tool_result"; sessionId: string; tool: string; output: string }
   | { type: "cowork_completed"; sessionId: string; result: string; costUsd: number }
-  | { type: "cowork_error"; sessionId: string; error: string }
+  | { type: "cowork_error"; sessionId: string; error: string; errorSource?: "mcp_crash" | "agent_timeout" | "sdk_error" | "cli_fallback" | "unknown" }
   | { type: "cowork_approval_needed"; sessionId: string; tool: string; description: string };
 
 export interface ApprovalRequest {
@@ -64,17 +64,25 @@ export interface CoworkStore {
   sessionResult: string | null;
   sessionCostUsd: number | null;
   sessionError: string | null;
+  errorSource: string | null;
   approvalRequest: ApprovalRequest | null;
+
+  // Undo state
+  undoAvailable: boolean;
+  lastSessionId: string | null;
+  undoResult: string | null;
 
   // Actions
   fetchProjects: () => Promise<void>;
   registerProject: (name: string, rootPath: string) => Promise<void>;
   removeProject: (id: string) => Promise<void>;
   selectProject: (id: string | null) => void;
+  updateMcpServers: (projectId: string, servers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>) => Promise<void>;
   startSession: (projectId: string, prompt: string, options?: CoworkOptions) => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
   cancelSession: () => Promise<void>;
   clearSession: () => void;
+  undoSession: (sessionId: string) => Promise<void>;
 
   // SSE handler
   handleCoworkEvent: (event: unknown) => void;
@@ -122,7 +130,12 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
   sessionResult: null,
   sessionCostUsd: null,
   sessionError: null,
+  errorSource: null,
   approvalRequest: null,
+
+  undoAvailable: false,
+  lastSessionId: null,
+  undoResult: null,
 
   fetchProjects: async () => {
     set({ projectsLoading: true, projectError: null });
@@ -166,6 +179,20 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
     set({ selectedProjectId: id });
   },
 
+  updateMcpServers: async (projectId, servers) => {
+    try {
+      const data = await kanbanApi.updateProjectMcpServers(projectId, servers);
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === projectId ? { ...p, mcpServers: data.project.mcpServers } : p,
+        ),
+      }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ projectError: msg });
+    }
+  },
+
   startSession: async (projectId, prompt, options) => {
     set({
       streamTokens: [],
@@ -173,6 +200,7 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
       sessionResult: null,
       sessionCostUsd: null,
       sessionError: null,
+      errorSource: null,
       approvalRequest: null,
     });
     try {
@@ -221,8 +249,25 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
       sessionResult: null,
       sessionCostUsd: null,
       sessionError: null,
+      errorSource: null,
       approvalRequest: null,
+      undoAvailable: false,
+      lastSessionId: null,
+      undoResult: null,
     });
+  },
+
+  undoSession: async (sessionId) => {
+    try {
+      const data = await kanbanApi.undoCoworkSession(sessionId);
+      set({
+        undoResult: data.undone ? "Session changes undone successfully" : "Undo was not applied",
+        undoAvailable: false,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ sessionError: msg });
+    }
   },
 
   handleCoworkEvent: (event) => {
@@ -242,6 +287,7 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
           sessionResult: null,
           sessionCostUsd: null,
           sessionError: null,
+          errorSource: null,
           approvalRequest: null,
         });
         break;
@@ -292,6 +338,8 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
             : null,
           sessionResult: ev.result,
           sessionCostUsd: ev.costUsd,
+          lastSessionId: ev.sessionId,
+          undoAvailable: true,
         }));
         break;
       }
@@ -302,6 +350,7 @@ export const useCoworkStore = create<CoworkStore>((set, get) => ({
             ? { ...state.activeSession, status: "failed" as const }
             : null,
           sessionError: ev.error,
+          errorSource: ev.errorSource ?? null,
         }));
         break;
       }
