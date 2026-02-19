@@ -69,6 +69,7 @@ export async function runCliAgent(params: {
   /** Backward-compat fallback when only the previous signature is available. */
   bootstrapPromptWarningSignature?: string;
   images?: ImageContent[];
+  lane?: string;
 }): Promise<EmbeddedPiRunResult> {
   const started = Date.now();
   const workspaceResolution = resolveRunWorkspaceDir({
@@ -242,7 +243,11 @@ export async function runCliAgent(params: {
     });
 
     const serialize = backend.serialize ?? true;
-    const queueKey = serialize ? backendResolved.id : `${backendResolved.id}:${params.runId}`;
+    const queueKey = serialize
+      ? params.lane
+        ? `${backendResolved.id}:${params.lane}`
+        : backendResolved.id
+      : `${backendResolved.id}:${params.runId}`;
 
     try {
       const output = await enqueueCliRun(queueKey, async () => {
@@ -287,9 +292,10 @@ export async function runCliAgent(params: {
         }
 
         const env = (() => {
-          const next = { ...process.env, ...backend.env };
+          const next: Record<string, string | undefined> = { ...process.env, ...backend.env };
           for (const key of backend.clearEnv ?? []) {
-            delete next[key];
+            // Setting undefined survives the exec-layer merge with process.env.
+            next[key] = undefined;
           }
           return next;
         })();

@@ -75,6 +75,10 @@ export function installTestEnv(): { cleanup: () => void; tempHome: string } {
     { key: "OPENCLAW_STATE_DIR", value: process.env.OPENCLAW_STATE_DIR },
     { key: "OPENCLAW_CONFIG_PATH", value: process.env.OPENCLAW_CONFIG_PATH },
     { key: "OPENCLAW_GATEWAY_PORT", value: process.env.OPENCLAW_GATEWAY_PORT },
+    { key: "OPENCLAW_GATEWAY_TOKEN", value: process.env.OPENCLAW_GATEWAY_TOKEN },
+    { key: "OPENCLAW_GATEWAY_PASSWORD", value: process.env.OPENCLAW_GATEWAY_PASSWORD },
+    { key: "CLAWDBOT_GATEWAY_TOKEN", value: process.env.CLAWDBOT_GATEWAY_TOKEN },
+    { key: "CLAWDBOT_GATEWAY_PASSWORD", value: process.env.CLAWDBOT_GATEWAY_PASSWORD },
     { key: "OPENCLAW_BRIDGE_ENABLED", value: process.env.OPENCLAW_BRIDGE_ENABLED },
     { key: "OPENCLAW_BRIDGE_HOST", value: process.env.OPENCLAW_BRIDGE_HOST },
     { key: "OPENCLAW_BRIDGE_PORT", value: process.env.OPENCLAW_BRIDGE_PORT },
@@ -104,6 +108,10 @@ export function installTestEnv(): { cleanup: () => void; tempHome: string } {
   delete process.env.OPENCLAW_STATE_DIR;
   // Prefer test-controlled ports over developer overrides (avoid port collisions across tests/workers).
   delete process.env.OPENCLAW_GATEWAY_PORT;
+  delete process.env.OPENCLAW_GATEWAY_TOKEN;
+  delete process.env.OPENCLAW_GATEWAY_PASSWORD;
+  delete process.env.CLAWDBOT_GATEWAY_TOKEN;
+  delete process.env.CLAWDBOT_GATEWAY_PASSWORD;
   delete process.env.OPENCLAW_BRIDGE_ENABLED;
   delete process.env.OPENCLAW_BRIDGE_HOST;
   delete process.env.OPENCLAW_BRIDGE_PORT;

@@ -15,9 +15,8 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import { atomicWriteFile } from "./atomic-write.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 const VWP_DIR = join(homedir(), ".openclaw", "vwp");

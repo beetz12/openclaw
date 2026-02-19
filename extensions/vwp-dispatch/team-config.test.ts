@@ -115,7 +115,7 @@ describe("team-config routes", () => {
       expect(res._status).toBe(404);
     });
 
-    it("returns team config when it exists", async () => {
+    it("returns team config wrapped in { team: config } when it exists", async () => {
       await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
 
       const req = createMockReq("GET", "/vwp/team");
@@ -123,11 +123,27 @@ describe("team-config routes", () => {
       await handler(req, res);
 
       expect(res._status).toBe(200);
+      // Response must be wrapped: { team: { businessType, businessName, members, ... } }
       expect(res._body).toMatchObject({
-        businessType: "consulting",
-        businessName: "Acme Corp",
-        members: expect.arrayContaining([expect.objectContaining({ id: "ceo" })]),
+        team: {
+          businessType: "consulting",
+          businessName: "Acme Corp",
+          members: expect.arrayContaining([expect.objectContaining({ id: "ceo" })]),
+        },
       });
+    });
+
+    it("response does not expose team fields at the top level", async () => {
+      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+
+      const req = createMockReq("GET", "/vwp/team");
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+      // Top-level keys should only be { team }
+      const body = res._body as Record<string, unknown>;
+      expect(Object.keys(body)).toEqual(["team"]);
     });
   });
 

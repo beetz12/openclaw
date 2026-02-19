@@ -28,7 +28,7 @@ export const OnboardingPayloadSchema = z.object({
   businessType: z.enum(["consulting", "ecommerce", "custom"]),
   businessName: z.string(),
   userName: z.string(),
-  team: z.array(TeamMemberSchema),
+  team: z.array(TeamMemberSchema).optional().default([]),
 });
 
 export type TeamMember = z.infer<typeof TeamMemberSchema>;

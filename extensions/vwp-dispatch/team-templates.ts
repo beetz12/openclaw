@@ -123,8 +123,20 @@ const ECOMMERCE_TEAM: TeamMember[] = [
   },
 ];
 
-export function getDefaultTeam(businessType: "consulting" | "ecommerce"): TeamMember[] {
-  return businessType === "consulting"
-    ? CONSULTING_TEAM.map((m) => ({ ...m }))
-    : ECOMMERCE_TEAM.map((m) => ({ ...m }));
+const CUSTOM_TEAM: TeamMember[] = [
+  {
+    id: "ceo",
+    name: "CEO",
+    role: "CEO / General Manager",
+    description: "Oversees all operations and strategy",
+    skills: ["strategy", "planning", "management"],
+    required: true,
+    active: true,
+  },
+];
+
+export function getDefaultTeam(businessType: "consulting" | "ecommerce" | "custom"): TeamMember[] {
+  if (businessType === "consulting") return CONSULTING_TEAM.map((m) => ({ ...m }));
+  if (businessType === "ecommerce") return ECOMMERCE_TEAM.map((m) => ({ ...m }));
+  return CUSTOM_TEAM.map((m) => ({ ...m }));
 }
