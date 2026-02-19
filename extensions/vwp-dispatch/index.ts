@@ -1,6 +1,5 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { join } from "node:path";
-import type { TaskRequest } from "./types.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { getSharedSSE } from "../vwp-approval/sse.js";
 import { AgentStateManager } from "./agent-state.js";
 import { analyzeTask } from "./analyzer.js";
@@ -32,6 +31,7 @@ import { launchTeam } from "./team-launcher.js";
 import { discoverTools, type LoadedTool } from "./tool-manifest.js";
 import { createToolHttpHandler } from "./tool-routes.js";
 import { ToolRunner } from "./tool-runner.js";
+import type { TaskRequest } from "./types.js";
 
 // Re-export public types for consumers.
 export { SkillRegistry } from "./skill-registry.js";
@@ -48,7 +48,7 @@ export type { BusinessProfile, BusinessContext, RoleConfig } from "./context-loa
 type VwpDispatchPluginConfig = {
   enabled?: boolean;
   pluginsPath?: string;
-  /** Provider for LLM calls (default: "claude-cli"). */
+  /** CLI provider for dispatch (e.g. "claude-cli", "codex-cli", "gemini-cli"). */
   provider?: string;
   /** Model for task analysis (default: "sonnet"). */
   analyzerModel?: string;
@@ -363,6 +363,7 @@ export default {
           `vwp-dispatch: launching team for task ${task.id} (${spec.specialists.length} specialists, ~$${spec.estimatedCost.estimatedCostUsd.toFixed(2)})`,
         );
         const handle = await launchTeam(spec, task.id, registry, {
+          provider: pluginCfg.provider,
           model: pluginCfg.teamModel ?? "opus",
           timeoutMs: pluginCfg.teamTimeoutMs,
           sse,
