@@ -12,11 +12,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ApprovalSSE } from "../vwp-approval/sse.js";
 import type { AgentStateManager } from "./agent-state.js";
-import type { SkillRegistry } from "./skill-registry.js";
-import type { TeamSpec } from "./types.js";
+import { buildAgentInvocation } from "./cli-provider.js";
 import { generateSkillSummary } from "./context-loader.js";
 import { buildSafeEnv } from "./safe-env.js";
+import type { SkillRegistry } from "./skill-registry.js";
 import { TeamMonitor } from "./team-monitor.js";
+import type { TeamSpec } from "./types.js";
 
 const TASKS_BASE = join(homedir(), ".openclaw", "vwp", "tasks");
 
@@ -84,6 +85,7 @@ export async function launchTeam(
 
   const totalTimeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const specialistTimeoutMs = options.specialistTimeoutMs ?? DEFAULT_SPECIALIST_TIMEOUT_MS;
+  const provider = options.provider ?? "claude-cli";
 
   // Build specialist handles.
   const specialists: SpecialistHandle[] = spec.specialists.map((s) => ({
@@ -133,14 +135,21 @@ export async function launchTeam(
     }
 
     // Run lead first (coordination phase).
-    const leadArgs = buildCliArgs(leadPrompt, options.model);
-    const leadResult = await runCommandWithTimeout(["claude", ...leadArgs], {
+    const leadInvocation = buildAgentInvocation(provider, {
+      prompt: leadPrompt,
+      model: options.model,
+    });
+    const leadResult = await runCommandWithTimeout(leadInvocation, {
       timeoutMs: Math.min(specialistTimeoutMs, totalTimeoutMs),
       cwd: options.workspaceDir,
       env: {
         ...buildSafeEnv(process.env as Record<string, string>),
-        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
-        CLAUDECODE: "",
+        ...(provider === "claude-cli"
+          ? {
+              CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
+              CLAUDECODE: "",
+            }
+          : {}),
       },
     });
     await writeFile(
@@ -170,14 +179,21 @@ export async function launchTeam(
           specialistHandle.startedAt = Date.now();
         }
 
-        const args = buildCliArgs(prompt, options.model);
-        const result = await runCommandWithTimeout(["claude", ...args], {
+        const specialistInvocation = buildAgentInvocation(provider, {
+          prompt,
+          model: options.model,
+        });
+        const result = await runCommandWithTimeout(specialistInvocation, {
           timeoutMs: specialistTimeoutMs,
           cwd: options.workspaceDir,
           env: {
             ...buildSafeEnv(process.env as Record<string, string>),
-            CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
-            CLAUDECODE: "",
+            ...(provider === "claude-cli"
+              ? {
+                  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1",
+                  CLAUDECODE: "",
+                }
+              : {}),
           },
         });
 
@@ -315,14 +331,6 @@ Your job in this coordination phase:
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildCliArgs(prompt: string, model?: string): string[] {
-  const args = ["-p", prompt, "--dangerously-skip-permissions", "--output-format", "json"];
-  if (model) {
-    args.push("--model", model);
-  }
-  return args;
-}
 
 function sanitizeFilename(name: string): string {
   return name
