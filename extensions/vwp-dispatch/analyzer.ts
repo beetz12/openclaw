@@ -9,12 +9,13 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { buildAnalysisInvocation } from "./cli-provider.js";
 import type { BusinessContext } from "./context-loader.js";
-import type { TeamConfig, TeamMember } from "./team-types.js";
-import type { TaskDecomposition } from "./types.js";
 import { enrichDecomposition, formatEnrichmentPrompt } from "./memory/memory-enrichment.js";
 import { createMemoryClient, type MemoryClient } from "./memory/notebooklm-client.js";
 import { sanitizeTaskText } from "./sanitize.js";
+import type { TeamConfig, TeamMember } from "./team-types.js";
+import type { TaskDecomposition } from "./types.js";
 
 export type AnalyzerConfig = {
   /** CLI backend provider to use for the analysis LLM call. */
@@ -90,19 +91,13 @@ export async function analyzeTask(
     }
   }
 
-  const args = [
-    "-p",
-    cleanText,
-    "--output-format",
-    "json",
-    "--model",
+  const invocation = buildAnalysisInvocation(provider, {
+    prompt: cleanText,
     model,
-    "--append-system-prompt",
     systemPrompt,
-    "--dangerously-skip-permissions",
-  ];
+  });
 
-  const result = await runCommandWithTimeout(["claude", ...args], {
+  const result = await runCommandWithTimeout(invocation, {
     timeoutMs,
   });
 
