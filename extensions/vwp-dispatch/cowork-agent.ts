@@ -30,6 +30,8 @@ export interface CoworkStartParams {
   rootPath: string;
   prompt: string;
   model?: string;
+  /** CLI provider for the fallback path (e.g. "claude-cli", "codex-cli"). */
+  provider?: string;
   mcpServers?: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
   onEvent: (event: CoworkSSEEvent) => void;
   maxBudgetUsd?: number;
@@ -209,7 +211,7 @@ async function runWithCliFallback(
     sessionFile: "",
     workspaceDir: params.rootPath,
     prompt: params.prompt,
-    provider: "claude-cli",
+    provider: params.provider ?? "claude-cli",
     model: params.model ?? "sonnet",
     timeoutMs: 300_000,
     runId: session.id,
