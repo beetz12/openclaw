@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { kanbanApi } from "@/lib/api-client";
 
 interface TeamMember {
@@ -111,12 +112,20 @@ function MemberForm({
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [team, setTeam] = useState<TeamData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"reset-onboarding" | "clear-chat" | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      const t = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [error]);
 
   const fetchTeam = useCallback(async () => {
     try {
@@ -140,7 +149,7 @@ export default function SettingsPage() {
       await kanbanApi.updateTeamMember(member.id, { active: !member.active });
       await fetchTeam();
     } catch {
-      // Refresh to get server state
+      setError("Failed to update member status. Please try again.");
       await fetchTeam();
     }
   };
@@ -150,6 +159,7 @@ export default function SettingsPage() {
       await kanbanApi.deleteTeamMember(id);
       await fetchTeam();
     } catch {
+      setError("Failed to delete member. Please try again.");
       await fetchTeam();
     }
   };
@@ -160,6 +170,7 @@ export default function SettingsPage() {
       setEditingId(null);
       await fetchTeam();
     } catch {
+      setError("Failed to save member changes. Please try again.");
       await fetchTeam();
     }
   };
@@ -170,15 +181,21 @@ export default function SettingsPage() {
       setShowAddForm(false);
       await fetchTeam();
     } catch {
+      setError("Failed to add member. Please try again.");
       await fetchTeam();
     }
   };
 
   const handleResetOnboarding = async () => {
     try {
-      await kanbanApi.completeOnboarding({ businessType: "", businessName: "", userName: "", team: [] });
+      await kanbanApi.resetOnboarding();
+      localStorage.removeItem("vwp-board-onboarding-complete");
+      localStorage.removeItem("vwp-board-profile");
+      localStorage.removeItem("vwp-board-onboarding-state");
       setConfirmAction(null);
+      router.push("/onboarding");
     } catch {
+      setError("Failed to reset onboarding. Please try again.");
       setConfirmAction(null);
     }
   };
@@ -334,7 +351,11 @@ export default function SettingsPage() {
             {confirmAction === "clear-chat" ? (
               <div className="flex gap-2">
                 <button
-                  onClick={() => setConfirmAction(null)}
+                  onClick={() => {
+                    localStorage.removeItem("vwp-chat-messages");
+                    localStorage.removeItem("vwp-chat-conversationId");
+                    setConfirmAction(null);
+                  }}
                   className="rounded-[var(--radius-sm)] bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 transition-colors"
                 >
                   Confirm Clear

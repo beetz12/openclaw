@@ -200,7 +200,7 @@ async function runWithCliFallback(
   session: CoworkSession,
   params: CoworkStartParams,
 ): Promise<void> {
-  const { runCliAgent } = await import("../../src/agents/cli-runner.js");
+  const { runCliAgent } = await import("./upstream-imports.js");
 
   params.onEvent({ type: "cowork_started", sessionId: session.id, projectId: params.projectId });
 

@@ -17,7 +17,7 @@ const INDUSTRIES = [
 ];
 
 export function BusinessBasicsStep() {
-  const { businessName, setBusinessName, industry, setIndustry, description, setDescription, next, back } =
+  const { userName, setUserName, businessName, setBusinessName, industry, setIndustry, description, setDescription, next, back } =
     useOnboarding();
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -25,6 +25,7 @@ export function BusinessBasicsStep() {
     nameRef.current?.focus();
   }, []);
 
+  const userNameValid = userName.trim().length > 0;
   const nameValid = businessName.trim().length > 0;
 
   return (
@@ -37,6 +38,26 @@ export function BusinessBasicsStep() {
       </p>
 
       <div className="w-full max-w-lg space-y-4 mb-8">
+        {/* Your Name */}
+        <div>
+          <label
+            htmlFor="user-name"
+            className="mb-1.5 block text-sm font-medium text-[var(--color-text)]"
+          >
+            Your Name <span className="text-[var(--color-danger)]">*</span>
+          </label>
+          <input
+            ref={nameRef}
+            id="user-name"
+            type="text"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            placeholder="Jane Smith"
+            data-testid="user-name-input"
+            className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border-input)] bg-[var(--color-bg)] px-4 py-2.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+          />
+        </div>
+
         {/* Business Name */}
         <div>
           <label
@@ -46,7 +67,6 @@ export function BusinessBasicsStep() {
             Business Name <span className="text-[var(--color-danger)]">*</span>
           </label>
           <input
-            ref={nameRef}
             id="business-name"
             type="text"
             value={businessName}
@@ -112,7 +132,7 @@ export function BusinessBasicsStep() {
         <button
           type="button"
           onClick={next}
-          disabled={!nameValid}
+          disabled={!userNameValid || !nameValid}
           data-testid="next-btn"
           className="rounded-[var(--radius-md)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-primary-dark)] disabled:opacity-50 disabled:cursor-not-allowed"
         >

@@ -121,6 +121,33 @@ describe("getDefaultTeam", () => {
     });
   });
 
+  describe("custom team", () => {
+    const team = getDefaultTeam("custom");
+
+    it("returns exactly 1 member (CEO only)", () => {
+      expect(team).toHaveLength(1);
+    });
+
+    it("the single member is the CEO", () => {
+      const ceo = team.find((m) => m.id === "ceo");
+      expect(ceo).toBeDefined();
+      expect(ceo!.required).toBe(true);
+      expect(ceo!.active).toBe(true);
+    });
+
+    it("CEO has management-related skills", () => {
+      const ceo = team[0];
+      expect(ceo.skills).toContain("strategy");
+    });
+
+    it("CEO member validates against schema", () => {
+      for (const member of team) {
+        const result = TeamMemberSchema.safeParse(member);
+        expect(result.success).toBe(true);
+      }
+    });
+  });
+
   it("returns independent copies (no shared references)", () => {
     const team1 = getDefaultTeam("consulting");
     const team2 = getDefaultTeam("consulting");

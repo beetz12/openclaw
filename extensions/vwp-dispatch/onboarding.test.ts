@@ -164,6 +164,53 @@ describe("onboarding routes", () => {
       expect(team.members[0].id).toBe("ceo");
     });
 
+    it("derives team from businessType when team array is empty", async () => {
+      const { team, ...payloadWithoutTeam } = validPayload;
+      const req = createMockReq("POST", "/vwp/onboarding/complete", {
+        ...payloadWithoutTeam,
+        team: [],
+      });
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+
+      // Should have derived the consulting default team (6 members), not the empty array
+      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      expect(savedTeam.members.length).toBeGreaterThan(0);
+      expect(savedTeam.members.find((m: { id: string }) => m.id === "ceo")).toBeDefined();
+    });
+
+    it("derives team from businessType when team field is omitted", async () => {
+      const { team, ...payloadWithoutTeam } = validPayload;
+      const req = createMockReq("POST", "/vwp/onboarding/complete", payloadWithoutTeam);
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+
+      // Should have derived the consulting default team
+      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      expect(savedTeam.members.length).toBeGreaterThan(0);
+    });
+
+    it("uses CEO-only team for custom businessType when no team is provided", async () => {
+      const req = createMockReq("POST", "/vwp/onboarding/complete", {
+        ...validPayload,
+        businessType: "custom",
+        team: [],
+      });
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+
+      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      expect(savedTeam.businessType).toBe("custom");
+      expect(savedTeam.members).toHaveLength(1);
+      expect(savedTeam.members[0].id).toBe("ceo");
+    });
+
     it("rejects invalid payload (missing userName)", async () => {
       const { userName, ...noUser } = validPayload;
       const req = createMockReq("POST", "/vwp/onboarding/complete", noUser);
@@ -223,6 +270,48 @@ describe("onboarding routes", () => {
 
       const team = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
       expect(team.businessType).toBe("ecommerce");
+    });
+  });
+
+  describe("DELETE /vwp/onboarding", () => {
+    it("returns { reset: true } and deletes onboarding and team files", async () => {
+      // Create both files first
+      await writeFile(ONBOARDING_FILE, JSON.stringify({ completed: true }));
+      await writeFile(TEAM_FILE, JSON.stringify({ businessType: "consulting" }));
+
+      const req = createMockReq("DELETE", "/vwp/onboarding");
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+      expect(res._body).toEqual({ reset: true });
+
+      // Both files should be deleted
+      await expect(readFile(ONBOARDING_FILE, "utf-8")).rejects.toThrow();
+      await expect(readFile(TEAM_FILE, "utf-8")).rejects.toThrow();
+    });
+
+    it("succeeds even when files do not exist", async () => {
+      // No files exist — directory is empty
+      const req = createMockReq("DELETE", "/vwp/onboarding");
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+      expect(res._body).toEqual({ reset: true });
+    });
+
+    it("succeeds when only the onboarding file exists (team file missing)", async () => {
+      await writeFile(ONBOARDING_FILE, JSON.stringify({ completed: true }));
+      // No team file
+
+      const req = createMockReq("DELETE", "/vwp/onboarding");
+      const res = createMockRes();
+      await handler(req, res);
+
+      expect(res._status).toBe(200);
+      expect(res._body).toEqual({ reset: true });
+      await expect(readFile(ONBOARDING_FILE, "utf-8")).rejects.toThrow();
     });
   });
 });

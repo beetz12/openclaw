@@ -46,6 +46,9 @@ Model note: while many providers/models are supported, for the best experience a
 
 - Models config + CLI: [Models](https://docs.openclaw.ai/concepts/models)
 - Auth profile rotation (OAuth vs API keys) + fallbacks: [Model failover](https://docs.openclaw.ai/concepts/model-failover)
+- **[Model Providers](docs/concepts/model-providers.md)** (Essential): Detailed setup for all providers, including specific commands for **OpenAI Codex** and Anthropic.
+- **[CLI Onboarding Reference](docs/start/wizard-cli-reference.md)**: Full reference for the `openclaw onboard` wizard, including auth options.
+- **[Configuration Examples](docs/gateway/configuration-examples.md)**: JSON config snippets for common setups (Codex, Anthropic, proxies).
 
 ## Install (recommended)
 

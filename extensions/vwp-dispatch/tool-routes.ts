@@ -14,8 +14,7 @@ import { execSync } from "node:child_process";
 import type { ToolSSEEvent } from "./kanban-types.js";
 import type { LoadedTool, ArgSchema } from "./tool-manifest.js";
 import type { ToolRunner } from "./tool-runner.js";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 

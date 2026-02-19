@@ -9,7 +9,7 @@ const TYPES: Array<{
   icon: React.ReactNode;
 }> = [
   {
-    id: "e-commerce",
+    id: "ecommerce",
     label: "E-Commerce",
     desc: "Online store, product catalog, orders, shipping, and promotions.",
     icon: (
@@ -21,7 +21,7 @@ const TYPES: Array<{
     ),
   },
   {
-    id: "it-consultancy",
+    id: "consulting",
     label: "IT Consultancy",
     desc: "Client projects, reports, proposals, and technical deliverables.",
     icon: (
@@ -33,7 +33,7 @@ const TYPES: Array<{
     ),
   },
   {
-    id: "general",
+    id: "custom",
     label: "General / Other",
     desc: "Flexible workspace for any kind of business or personal tasks.",
     icon: (

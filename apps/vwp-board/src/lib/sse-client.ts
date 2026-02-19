@@ -82,6 +82,12 @@ export class BoardSSEClient {
       this._dispatch(ev);
     };
 
+    /**
+     * SSE Event Type Registration (TWO-PLACE RULE):
+     * Every event type here MUST also be defined in the backend type union
+     * at extensions/vwp-dispatch/kanban-types.ts.
+     * Missing from either side silently drops the event with no error.
+     */
     // Register listeners for known Kanban event types
     const eventTypes = [
       "connected",

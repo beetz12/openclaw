@@ -9,12 +9,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { kanbanApi } from "@/lib/api-client";
 
-export type BusinessType = "e-commerce" | "it-consultancy" | "general";
+export type BusinessType = "ecommerce" | "consulting" | "custom";
 
 export interface OnboardingState {
   currentStep: number;
   businessType: BusinessType | null;
+  userName: string;
   businessName: string;
   industry: string;
   description: string;
@@ -27,12 +29,13 @@ interface OnboardingContextValue extends OnboardingState {
   next: () => void;
   back: () => void;
   setBusinessType: (type: BusinessType) => void;
+  setUserName: (name: string) => void;
   setBusinessName: (name: string) => void;
   setIndustry: (industry: string) => void;
   setDescription: (desc: string) => void;
   setApiUrl: (url: string) => void;
   setApiToken: (token: string) => void;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<void>;
   totalSteps: number;
 }
 
@@ -43,6 +46,7 @@ const TOTAL_STEPS = 5;
 const defaultState: OnboardingState = {
   currentStep: 1,
   businessType: null,
+  userName: "",
   businessName: "",
   industry: "",
   description: "",
@@ -52,11 +56,25 @@ const defaultState: OnboardingState = {
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
+function migrateBusinessType(type: string | null): BusinessType | null {
+  if (!type) {return null;}
+  const migrations: Record<string, BusinessType> = {
+    "e-commerce": "ecommerce",
+    "it-consultancy": "consulting",
+    "general": "custom",
+  };
+  return (migrations[type]) ?? (type as BusinessType);
+}
+
 function loadState(): OnboardingState {
   if (typeof window === "undefined") {return defaultState;}
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {return { ...defaultState, ...JSON.parse(raw) };}
+    if (raw) {
+      const parsed = { ...defaultState, ...JSON.parse(raw) };
+      parsed.businessType = migrateBusinessType(parsed.businessType);
+      return parsed;
+    }
   } catch {
     // corrupt data, start fresh
   }
@@ -112,6 +130,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     (type: BusinessType) => setState((s) => ({ ...s, businessType: type })),
     [],
   );
+  const setUserName = useCallback(
+    (name: string) => setState((s) => ({ ...s, userName: name })),
+    [],
+  );
   const setBusinessName = useCallback(
     (name: string) => setState((s) => ({ ...s, businessName: name })),
     [],
@@ -133,27 +155,40 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const completeOnboarding = useCallback(() => {
-    if (typeof window !== "undefined") {
-      // Save credentials if provided
-      if (state.apiUrl) {localStorage.setItem("vwp-dashboard-base-url", state.apiUrl);}
-      if (state.apiToken) {localStorage.setItem("vwp-dashboard-token", state.apiToken);}
+  const completeOnboarding = useCallback(async () => {
+    if (typeof window === "undefined") {return;}
 
-      // Save profile
-      localStorage.setItem(
-        "vwp-board-profile",
-        JSON.stringify({
-          businessType: state.businessType,
-          businessName: state.businessName,
-          industry: state.industry,
-          description: state.description,
-        }),
-      );
+    // Save credentials if provided
+    if (state.apiUrl) {localStorage.setItem("vwp-dashboard-base-url", state.apiUrl);}
+    if (state.apiToken) {localStorage.setItem("vwp-dashboard-token", state.apiToken);}
 
-      // Mark onboarding complete and clean up wizard state
-      localStorage.setItem(COMPLETE_KEY, "true");
-      localStorage.removeItem(STORAGE_KEY);
+    // Attempt backend API call (backend derives team from businessType)
+    try {
+      await kanbanApi.completeOnboarding({
+        businessType: state.businessType ?? "custom",
+        businessName: state.businessName,
+        userName: state.userName,
+        team: [],
+      });
+    } catch {
+      // fallback: localStorage only
     }
+
+    // Save profile to localStorage as fallback/cache
+    localStorage.setItem(
+      "vwp-board-profile",
+      JSON.stringify({
+        businessType: state.businessType,
+        userName: state.userName,
+        businessName: state.businessName,
+        industry: state.industry,
+        description: state.description,
+      }),
+    );
+
+    // Mark onboarding complete and clean up wizard state
+    localStorage.setItem(COMPLETE_KEY, "true");
+    localStorage.removeItem(STORAGE_KEY);
   }, [state]);
 
   const value = useMemo<OnboardingContextValue>(
@@ -163,6 +198,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       next,
       back,
       setBusinessType,
+      setUserName,
       setBusinessName,
       setIndustry,
       setDescription,
@@ -177,6 +213,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       next,
       back,
       setBusinessType,
+      setUserName,
       setBusinessName,
       setIndustry,
       setDescription,

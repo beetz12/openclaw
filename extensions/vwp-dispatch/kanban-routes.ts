@@ -11,11 +11,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AgentStateManager } from "./agent-state.js";
 import type { KanbanColumnId, ActivityEntry, KanbanSSEEvent } from "./kanban-types.js";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import * as boardState from "./board-state.js";
 import * as checkpoint from "./checkpoint.js";
 import { KANBAN_COLUMNS } from "./kanban-types.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 

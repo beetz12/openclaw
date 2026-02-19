@@ -15,8 +15,6 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { CoworkSSEEvent } from "./kanban-types.js";
 import type { Project } from "./project-registry.js";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import {
   startCoworkSession,
   cancelCoworkSession,
@@ -25,6 +23,7 @@ import {
   getRecentSessions,
   getSessionById,
 } from "./cowork-agent.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const execFileAsync = promisify(execFile);
 

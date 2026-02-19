@@ -3,6 +3,8 @@
  *
  * Routes:
  *   POST /vwp/chat/send    — send a chat message, proxy to Gateway, stream via SSE
+ *   POST /vwp/chat/cancel  — cancel an in-flight CLI chat request
+ *   GET  /vwp/chat/status   — check gateway connection status and backend type
  *   GET  /vwp/chat/history  — retrieve conversation history
  */
 
@@ -11,8 +13,8 @@ import { randomUUID } from "node:crypto";
 import type { ServerChatStore } from "./chat-store.js";
 import type { GatewayClient } from "./gateway-client.js";
 import type { ChatSSEEvent, ChatMessage } from "./kanban-types.js";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
+import { translateCliError } from "./cli-error-translator.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
@@ -21,6 +23,7 @@ export type ChatRoutesDeps = {
   gateway: GatewayClient | (() => GatewayClient | undefined);
   chatStore: ServerChatStore;
   onSSE?: (event: ChatSSEEvent) => void;
+  getBackendType?: () => "cli" | "embedded";
 };
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -51,6 +54,8 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
   const { gatewayToken, chatStore, onSSE } = deps;
   const resolveGateway = (): GatewayClient | undefined =>
     typeof deps.gateway === "function" ? deps.gateway() : deps.gateway;
+
+  let firstCliChatSent = false;
 
   function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
     const token = getBearerToken(req);
@@ -123,6 +128,7 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
       let lastContent = "";
       let chatResolved = false;
       let chatTimeout: ReturnType<typeof setTimeout> | undefined;
+      let thinkingInterval: ReturnType<typeof setInterval> | undefined;
 
       const onChat = (payload: Record<string, unknown>) => {
         if (!payload || typeof payload !== "object") return;
@@ -140,6 +146,7 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
         } else if (state === "final") {
           chatResolved = true;
           if (chatTimeout) clearTimeout(chatTimeout);
+          if (thinkingInterval) clearInterval(thinkingInterval);
           gateway.removeListener("chat", onChat);
           lastContent = text;
           onSSE?.({
@@ -161,6 +168,7 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
         } else if (state === "error" || state === "aborted") {
           chatResolved = true;
           if (chatTimeout) clearTimeout(chatTimeout);
+          if (thinkingInterval) clearInterval(thinkingInterval);
           gateway.removeListener("chat", onChat);
           // Error payload uses `errorMessage` field (not message.content[0].text)
           const errMsg = (payload.errorMessage as string | undefined) ?? text;
@@ -179,6 +187,7 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
       gateway.on("chat", onChat);
 
       // Fire the RPC call
+      const backendType = deps.getBackendType?.() ?? "embedded";
       try {
         const result = await gateway.call("chat.send", {
           sessionKey: conversationId,
@@ -188,26 +197,78 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
         // Gateway ACKs immediately with { runId, status: "started" }.
         // The agent processes asynchronously and may never broadcast a chat event
         // if it fails early (e.g. missing API key). Add a safety timeout.
+
+        // Start thinking indicator for CLI backend
+        const thinkingStartTime = Date.now();
+
+        if (backendType === "cli") {
+          onSSE?.({
+            type: "chat_thinking",
+            messageId: assistantMessageId,
+            status: "processing",
+            elapsed_ms: 0,
+          } as any);
+
+          thinkingInterval = setInterval(() => {
+            if (!chatResolved) {
+              onSSE?.({
+                type: "chat_thinking",
+                messageId: assistantMessageId,
+                status: "processing",
+                elapsed_ms: Date.now() - thinkingStartTime,
+              } as any);
+            }
+          }, 5_000);
+        }
+
+        // First CLI chat system message
+        if (backendType === "cli" && !firstCliChatSent) {
+          firstCliChatSent = true;
+          onSSE?.({
+            type: "chat_message",
+            messageId: randomUUID(),
+            role: "assistant",
+            content:
+              "Note: Running in CLI mode. Some interactive tools may not be available. Responses may take longer than usual.",
+            done: true,
+          });
+        }
+
+        const timeoutMs = backendType === "cli" ? 120_000 : 15_000;
         chatTimeout = setTimeout(() => {
           if (!chatResolved) {
+            if (thinkingInterval) clearInterval(thinkingInterval);
             gateway.removeListener("chat", onChat);
+            const errorMsg =
+              backendType === "cli"
+                ? "Response timed out. The request may have been too complex."
+                : "Error: No response from gateway. The agent may not be configured correctly.";
             onSSE?.({
               type: "chat_message",
               messageId: assistantMessageId,
               role: "assistant",
-              content:
-                "Error: No response from gateway. The agent may not be configured correctly.",
+              content: errorMsg,
               done: true,
             });
           }
-        }, 15_000);
+        }, timeoutMs);
       } catch (err) {
+        if (thinkingInterval) clearInterval(thinkingInterval);
         gateway.removeListener("chat", onChat);
+
+        let errorContent: string;
+        if (backendType === "cli") {
+          const translated = translateCliError(err instanceof Error ? err : String(err));
+          errorContent = translated.message;
+        } else {
+          errorContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+        }
+
         onSSE?.({
           type: "chat_message",
           messageId: assistantMessageId,
           role: "assistant",
-          content: `Error: ${err instanceof Error ? err.message : String(err)}`,
+          content: errorContent,
           done: true,
         });
       }
@@ -216,11 +277,42 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
       return true;
     }
 
+    // POST /vwp/chat/cancel — cancel an in-flight CLI chat request
+    if (req.method === "POST" && pathname === "/vwp/chat/cancel") {
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw) as { runId?: string };
+
+        const gateway = resolveGateway();
+        if (gateway && gateway.isConnected()) {
+          try {
+            await gateway.call("chat.cancel", { runId: body.runId });
+          } catch {
+            // Cancel is best-effort
+          }
+        }
+
+        onSSE?.({
+          type: "chat_message",
+          messageId: randomUUID(),
+          role: "assistant",
+          content: "Request cancelled.",
+          done: true,
+        });
+
+        jsonResponse(res, 200, { cancelled: true });
+      } catch {
+        jsonResponse(res, 500, { error: "Failed to cancel request" });
+      }
+      return true;
+    }
+
     // GET /vwp/chat/status — check gateway connection status
     if (req.method === "GET" && pathname === "/vwp/chat/status") {
       const gateway = resolveGateway();
       const connected = !!gateway && gateway.isConnected();
-      jsonResponse(res, 200, { connected });
+      const backendType = deps.getBackendType?.() ?? "embedded";
+      jsonResponse(res, 200, { connected, backendType });
       return true;
     }
 
