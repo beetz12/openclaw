@@ -48,12 +48,12 @@ OpenClaw ships with the pi‑ai catalog. These providers require **no**
 }
 ```
 
-### OpenAI Code (Codex)
+### OpenAI OAuth (Codex)
 
 - Provider: `openai-codex`
 - Auth: OAuth (ChatGPT)
 - Example model: `openai-codex/gpt-5.3-codex`
-- CLI: `openclaw onboard --auth-choice openai-codex` or `openclaw models auth login --provider openai-codex`
+- CLI: `nexclaw onboard --auth-choice openai-codex`
 
 ```json5
 {

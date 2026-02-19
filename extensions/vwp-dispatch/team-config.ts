@@ -12,10 +12,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import { atomicWriteFile } from "./atomic-write.js";
 import { TeamMemberSchema, TeamConfigSchema, type TeamConfig } from "./team-types.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 const TEAM_FILE = join(homedir(), ".openclaw", "vwp", "team.json");
@@ -94,7 +93,7 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
         jsonResponse(res, 404, { error: "Team not configured" });
         return true;
       }
-      jsonResponse(res, 200, config);
+      jsonResponse(res, 200, { team: config });
       return true;
     }
 

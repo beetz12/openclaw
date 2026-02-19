@@ -29,7 +29,8 @@ export type ChatSSEEvent =
       messageId: string;
       role: string;
       description: string;
-    };
+    }
+  | { type: "chat_thinking"; messageId: string; status: "processing" | "queued"; elapsed_ms: number; position?: number };
 
 export { MAX_RENDERED };
 
@@ -42,6 +43,9 @@ export interface ChatStore {
   onboardingComplete: boolean;
   teamConfig: TeamConfig | null;
   conversationId: string | null;
+  isThinking: boolean;
+  thinkingElapsedMs: number;
+  thinkingMessageId: string | null;
 
   // Actions
   sendMessage: (text: string, asTask?: boolean) => Promise<void>;
@@ -49,6 +53,7 @@ export interface ChatStore {
   cancelTask: (messageId: string, taskId: string) => Promise<void>;
   clarifyIntent: (messageId: string, choice: "chat" | "task") => void;
   acceptTeamMember: (role: string) => void;
+  cancelChat: () => Promise<void>;
   loadHistory: (before?: string) => Promise<void>;
   clearHistory: () => void;
   handleChatSSEEvent: (event: unknown) => void;
@@ -108,6 +113,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   onboardingComplete: false,
   teamConfig: null,
   conversationId: null,
+  isThinking: false,
+  thinkingElapsedMs: 0,
+  thinkingMessageId: null,
+
+  cancelChat: async () => {
+    try {
+      await kanbanApi.cancelChat();
+      set({ isThinking: false, thinkingElapsedMs: 0, thinkingMessageId: null });
+    } catch {
+      // Cancel is best-effort
+    }
+  },
 
   sendMessage: async (text, asTask = false) => {
     const userMessage: ChatMessage = {
@@ -244,6 +261,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           isStreaming: false,
           streamingMessageId: null,
           streamingContent: "",
+          isThinking: false,
+          thinkingElapsedMs: 0,
+          thinkingMessageId: null,
           conversationId: state.conversationId ?? ev.messageId.split("_")[0] ?? null,
         }));
         get()._saveToStorage();
@@ -305,6 +325,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           messages: trimMessages([...state.messages, suggestMessage]),
         }));
         get()._saveToStorage();
+        break;
+      }
+
+      case "chat_thinking": {
+        set({
+          isThinking: true,
+          thinkingElapsedMs: ev.elapsed_ms ?? 0,
+          thinkingMessageId: ev.messageId ?? null,
+        });
         break;
       }
     }

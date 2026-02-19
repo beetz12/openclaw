@@ -3,6 +3,7 @@ export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
+  error?: boolean;
   taskDispatch?: { taskId: string; title: string };
   intentClarify?: { question: string; options: string[] };
   teamSuggest?: { role: string; description: string };

@@ -50,6 +50,7 @@ export async function runCliAgent(params: {
   ownerNumbers?: string[];
   cliSessionId?: string;
   images?: ImageContent[];
+  lane?: string;
 }): Promise<EmbeddedPiRunResult> {
   const started = Date.now();
   const workspaceResolution = resolveRunWorkspaceDir({
@@ -176,7 +177,11 @@ export async function runCliAgent(params: {
   });
 
   const serialize = backend.serialize ?? true;
-  const queueKey = serialize ? backendResolved.id : `${backendResolved.id}:${params.runId}`;
+  const queueKey = serialize
+    ? params.lane
+      ? `${backendResolved.id}:${params.lane}`
+      : backendResolved.id
+    : `${backendResolved.id}:${params.runId}`;
 
   try {
     const output = await enqueueCliRun(queueKey, async () => {
@@ -221,9 +226,12 @@ export async function runCliAgent(params: {
       }
 
       const env = (() => {
-        const next = { ...process.env, ...backend.env };
+        const next: Record<string, string | undefined> = { ...process.env, ...backend.env };
         for (const key of backend.clearEnv ?? []) {
-          delete next[key];
+          // Set to undefined rather than delete — runCommandWithTimeout merges
+          // with process.env, so deleted keys would reappear. Setting undefined
+          // ensures the filter in exec.ts strips them from the final env.
+          next[key] = undefined;
         }
         return next;
       })();

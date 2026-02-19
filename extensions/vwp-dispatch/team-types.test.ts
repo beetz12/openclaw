@@ -131,10 +131,13 @@ describe("OnboardingPayloadSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects payload without team", () => {
+  it("accepts payload without team (defaults to empty array)", () => {
     const { team, ...noTeam } = validPayload;
     const result = OnboardingPayloadSchema.safeParse(noTeam);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.team).toEqual([]);
+    }
   });
 
   it("rejects payload with invalid businessType", () => {

@@ -7,13 +7,13 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getBearerToken } from "../../src/gateway/http-utils.js";
-import { safeEqualSecret } from "../../src/security/secret-equal.js";
 import { atomicWriteFile } from "./atomic-write.js";
+import { getDefaultTeam } from "./team-templates.js";
 import { OnboardingPayloadSchema, TeamConfigSchema } from "./team-types.js";
+import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 const VWP_DIR = join(homedir(), ".openclaw", "vwp");
@@ -110,7 +110,8 @@ export function createOnboardingHttpHandler(
         return true;
       }
 
-      const { businessType, businessName, userName, team } = parsed.data;
+      const { businessType, businessName, userName } = parsed.data;
+      const team = parsed.data.team.length > 0 ? parsed.data.team : getDefaultTeam(businessType);
 
       // Save onboarding status
       const onboardingData = {
@@ -140,6 +141,21 @@ export function createOnboardingHttpHandler(
       await atomicWriteFile(teamFile, JSON.stringify(teamParsed.data, null, 2));
 
       jsonResponse(res, 200, { ok: true });
+      return true;
+    }
+
+    // DELETE /vwp/onboarding — reset onboarding
+    if (req.method === "DELETE" && pathname === "/vwp/onboarding") {
+      const deleteFile = async (path: string) => {
+        try {
+          await unlink(path);
+        } catch (err: any) {
+          if (err.code !== "ENOENT") throw err;
+        }
+      };
+      await deleteFile(onboardingFile);
+      await deleteFile(teamFile);
+      jsonResponse(res, 200, { reset: true });
       return true;
     }
 

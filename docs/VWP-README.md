@@ -57,7 +57,7 @@ Uses Claude Pro/Max subscription via OAuth. Recommended model: Opus 4.6.
 ### OpenAI Codex (ChatGPT Plus/Pro Subscription)
 
 ```bash
-openclaw models auth login --provider openai-codex
+nexclaw onboard --auth-choice openai-codex
 ```
 
 Uses ChatGPT Plus or Pro subscription via OAuth (PKCE flow). This opens your

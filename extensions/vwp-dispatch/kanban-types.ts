@@ -1,5 +1,12 @@
 /** Kanban-specific types for the vwp-dispatch extension. */
 
+/**
+ * SSE Event Type Registration (TWO-PLACE RULE):
+ * Every event type defined here MUST also be added to the frontend eventTypes array
+ * in apps/vwp-board/src/lib/sse-client.ts (~line 86).
+ * Missing from either side silently drops the event with no error.
+ */
+
 export type KanbanColumnId = "backlog" | "todo" | "in_progress" | "review" | "done";
 
 export const KANBAN_COLUMNS: readonly KanbanColumnId[] = [

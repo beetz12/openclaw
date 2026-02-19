@@ -8,6 +8,7 @@ let reachable = false;
 let cfgAttachOnly = false;
 let createTargetId: string | null = null;
 let prevGatewayPort: string | undefined;
+let prevGatewayToken: string | undefined;
 
 const cdpMocks = vi.hoisted(() => ({
   createTargetViaCdp: vi.fn(async () => {
@@ -211,6 +212,8 @@ describe("browser control server", () => {
     _cdpBaseUrl = `http://127.0.0.1:${testPort + 1}`;
     prevGatewayPort = process.env.OPENCLAW_GATEWAY_PORT;
     process.env.OPENCLAW_GATEWAY_PORT = String(testPort - 2);
+    prevGatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+    delete process.env.OPENCLAW_GATEWAY_TOKEN;
 
     // Minimal CDP JSON endpoints used by the server.
     let putNewCalls = 0;
@@ -273,6 +276,11 @@ describe("browser control server", () => {
     } else {
       process.env.OPENCLAW_GATEWAY_PORT = prevGatewayPort;
     }
+    if (prevGatewayToken === undefined) {
+      delete process.env.OPENCLAW_GATEWAY_TOKEN;
+    } else {
+      process.env.OPENCLAW_GATEWAY_TOKEN = prevGatewayToken;
+    }
     await stopBrowserControlServer();
   });
 
@@ -307,6 +315,8 @@ describe("profile CRUD endpoints", () => {
     _cdpBaseUrl = `http://127.0.0.1:${testPort + 1}`;
     prevGatewayPort = process.env.OPENCLAW_GATEWAY_PORT;
     process.env.OPENCLAW_GATEWAY_PORT = String(testPort - 2);
+    prevGatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+    delete process.env.OPENCLAW_GATEWAY_TOKEN;
 
     vi.stubGlobal(
       "fetch",
@@ -327,6 +337,11 @@ describe("profile CRUD endpoints", () => {
       delete process.env.OPENCLAW_GATEWAY_PORT;
     } else {
       process.env.OPENCLAW_GATEWAY_PORT = prevGatewayPort;
+    }
+    if (prevGatewayToken === undefined) {
+      delete process.env.OPENCLAW_GATEWAY_TOKEN;
+    } else {
+      process.env.OPENCLAW_GATEWAY_TOKEN = prevGatewayToken;
     }
     await stopBrowserControlServer();
   });
