@@ -232,4 +232,15 @@ describe("team-launcher", () => {
     // Only lead call should happen.
     expect(mockRunCommand).toHaveBeenCalledTimes(1);
   });
+
+  it("uses codex binary when provider is codex-cli", async () => {
+    const spec = createTestSpec();
+    await launchTeam(spec, "task-010", mockRegistry, { provider: "codex-cli", model: "o3" });
+
+    const firstCall = mockRunCommand.mock.calls[0]!;
+    const argv = firstCall[0] as string[];
+    expect(argv[0]).toBe("codex");
+    expect(argv[1]).toBe("exec");
+    expect(argv).toContain("--json");
+  });
 });
