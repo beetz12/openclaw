@@ -97,6 +97,7 @@ export async function runDaemonInstall(opts: DaemonInstallOptions) {
     env: process.env,
     port,
     runtime: runtimeRaw,
+    devMode: opts.dev ? true : undefined,
     warn: (message) => {
       if (json) {
         warnings.push(message);

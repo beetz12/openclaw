@@ -14,7 +14,7 @@ if [ -f "$CONFIG_FILE" ]; then
     const model = existing?.agents?.defaults?.model?.primary;
     if (!model) {
       console.log('  WARNING: agents.defaults.model.primary is not set.');
-      console.log('  Set it to \"claude-cli/opus\" for CLI backend mode.');
+      console.log('  Set it to \"openai-codex/gpt-5.3-codex\" or \"claude-cli/opus\".');
       process.exit(1);
     } else {
       console.log('  Model: ' + model + ' — OK');
@@ -27,7 +27,7 @@ else
   "agents": {
     "defaults": {
       "model": {
-        "primary": "claude-cli/opus"
+        "primary": "openai-codex/gpt-5.3-codex"
       }
     }
   }
