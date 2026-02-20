@@ -1,8 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { PendingMessage, SSEEvent } from "../api/types.js";
 import { api } from "../api/client.js";
 import { sseClient } from "../api/sse.js";
+import type { PendingMessage, SSEEvent } from "../api/types.js";
 import { bell, sparkles } from "../styles/icons.js";
 import { sharedStyles } from "../styles/shared.js";
 import { theme } from "../styles/theme.js";

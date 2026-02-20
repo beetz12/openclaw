@@ -97,6 +97,11 @@ function makeId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function mapHistoryRole(role: string): ChatMessage["role"] {
+  if (role === "assistant" || role === "system" || role === "user") {return role;}
+  return "assistant";
+}
+
 function trimMessages(messages: ChatMessage[]): ChatMessage[] {
   if (messages.length > MAX_STORED) {
     return messages.slice(messages.length - MAX_STORED);
@@ -126,7 +131,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  sendMessage: async (text, asTask = false) => {
+  sendMessage: async (text, _asTask = false) => {
     const userMessage: ChatMessage = {
       id: makeId(),
       role: "user",
@@ -140,12 +145,54 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     get()._saveToStorage();
 
     try {
-      // The api-client teammate will add this method
-      await (kanbanApi as any).sendChatMessage(
+      const { conversationId } = await kanbanApi.sendChatMessage(
         text,
-        get().conversationId,
-        asTask,
+        get().conversationId ?? undefined,
       );
+
+      // Persist conversation id immediately (SSE may be unavailable).
+      set({ conversationId });
+
+      // SSE is preferred, but fall back to short polling when SSE is broken
+      // (e.g. proxy returns HTML/MIME mismatch instead of text/event-stream).
+      const startedAt = Date.now();
+      const timeoutMs = 30_000;
+      const pollEveryMs = 1_500;
+      const seen = new Set(get().messages.map((m) => m.id));
+
+      const poll = async (): Promise<void> => {
+        if (Date.now() - startedAt > timeoutMs) {return;}
+        try {
+          const history = await kanbanApi.getChatHistory({ conversationId, limit: 30 });
+          const incoming = (history.messages ?? [])
+            .filter((m) => !seen.has(m.id))
+            // In fallback mode, user messages are already optimistically rendered
+            // with local IDs. Server-side user echoes would otherwise appear duplicated.
+            .filter((m) => m.role !== "user")
+            .map((m) => ({
+              id: m.id,
+              role: mapHistoryRole(m.role),
+              content: m.content,
+              timestamp: m.timestamp ?? Date.now(),
+            } satisfies ChatMessage));
+
+          if (incoming.length > 0) {
+            incoming.forEach((m) => seen.add(m.id));
+            set((state) => ({ messages: trimMessages([...state.messages, ...incoming]) }));
+            get()._saveToStorage();
+
+            const hasAssistantReply = incoming.some((m) => m.role === "assistant" || m.role === "system");
+            if (hasAssistantReply) {return;}
+          }
+        } catch {
+          // Keep retrying until timeout.
+        }
+        setTimeout(() => {
+          void poll();
+        }, pollEveryMs);
+      };
+
+      void poll();
     } catch {
       // If the API call fails, add a system error message
       const errorMessage: ChatMessage = {
@@ -210,7 +257,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // Re-send via API with the clarified intent
     const original = get().messages.find((m) => m.id === messageId);
     if (original) {
-      get().sendMessage(original.content, choice === "task");
+      void get().sendMessage(original.content, choice === "task");
     }
   },
 

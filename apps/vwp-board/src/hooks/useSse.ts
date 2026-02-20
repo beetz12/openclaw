@@ -40,7 +40,43 @@ export function useSse(): void {
   const handleCoworkEvent = useCoworkStore((s) => s.handleCoworkEvent);
 
   useEffect(() => {
-    boardSSE.connect();
+    // Auto-bootstrap token/base URL from server-side env if localStorage is empty.
+    // This avoids "Gateway not running" false negatives when the gateway is up
+    // but the dashboard has no auth token yet.
+    const bootstrapPromise = (async () => {
+      try {
+        const res = await fetch("/api/config", { cache: "no-store" });
+        if (!res.ok) {return;}
+        const cfg = (await res.json()) as { gatewayToken?: string; hasToken?: boolean };
+        if (cfg?.hasToken && cfg.gatewayToken && typeof window !== "undefined") {
+          const existing = localStorage.getItem("vwp-dashboard-token");
+          if (!existing) {
+            localStorage.setItem("vwp-dashboard-token", cfg.gatewayToken);
+          }
+        }
+        if (typeof window !== "undefined") {
+          const existingBase = localStorage.getItem("vwp-dashboard-base-url");
+          if (!existingBase) {
+            localStorage.setItem("vwp-dashboard-base-url", window.location.origin);
+          }
+        }
+      } catch {
+        // Best-effort bootstrap only.
+      }
+    })();
+
+    void bootstrapPromise.finally(async () => {
+      boardSSE.connect();
+      // Also do an immediate status probe so chat can enable even if SSE
+      // "connected" event is delayed or unavailable.
+      try {
+        const api = new KanbanApiClient();
+        const { connected } = await api.getChatStatus();
+        setGatewayConnected(connected);
+      } catch {
+        setGatewayConnected(false);
+      }
+    });
 
     const unsubConnected = boardSSE.on("connected", () => {
       setSseConnected(true);
@@ -88,7 +124,7 @@ export function useSse(): void {
 
         // Sync gateway_status to chat store
         if (event.type === "gateway_status") {
-          setGatewayConnected((event as any).connected);
+          setGatewayConnected((event as unknown as { connected: boolean }).connected);
         }
       }
     });
