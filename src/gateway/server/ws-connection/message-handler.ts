@@ -599,7 +599,8 @@ export function attachGatewayWsMessageHandler(params: {
           close(1008, truncateCloseReason(authMessage));
         };
         const clearUnboundScopes = () => {
-          if (scopes.length > 0 && !controlUiAuthPolicy.allowBypass && !sharedAuthOk) {
+          const isBackendWithSharedAuth = connectParams.client.mode === "backend" && sharedAuthOk;
+          if (scopes.length > 0 && !controlUiAuthPolicy.allowBypass && !isBackendWithSharedAuth) {
             scopes = [];
             connectParams.scopes = scopes;
           }
