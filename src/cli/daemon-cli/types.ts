@@ -18,6 +18,7 @@ export type DaemonInstallOptions = {
   port?: string | number;
   runtime?: string;
   token?: string;
+  dev?: boolean;
   force?: boolean;
   json?: boolean;
 };
