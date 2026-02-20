@@ -8,12 +8,12 @@
  *   GET  /vwp/chat/history  — retrieve conversation history
  */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ServerChatStore } from "./chat-store.js";
+import { translateCliError } from "./cli-error-translator.js";
 import type { GatewayClient } from "./gateway-client.js";
 import type { ChatSSEEvent, ChatMessage } from "./kanban-types.js";
-import { translateCliError } from "./cli-error-translator.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
@@ -181,6 +181,14 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
             content: errorContent,
             done: true,
           });
+
+          const assistantMsg: ChatMessage = {
+            id: assistantMessageId,
+            role: "assistant",
+            content: errorContent,
+            timestamp: Date.now(),
+          };
+          void chatStore.appendMessage(conversationId, assistantMsg);
         }
       };
 
@@ -250,6 +258,13 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
               content: errorMsg,
               done: true,
             });
+            const assistantMsg: ChatMessage = {
+              id: assistantMessageId,
+              role: "assistant",
+              content: errorMsg,
+              timestamp: Date.now(),
+            };
+            void chatStore.appendMessage(conversationId, assistantMsg);
           }
         }, timeoutMs);
       } catch (err) {
@@ -271,6 +286,13 @@ export function createChatHttpHandler(deps: ChatRoutesDeps) {
           content: errorContent,
           done: true,
         });
+        const assistantMsg: ChatMessage = {
+          id: assistantMessageId,
+          role: "assistant",
+          content: errorContent,
+          timestamp: Date.now(),
+        };
+        await chatStore.appendMessage(conversationId, assistantMsg);
       }
 
       jsonResponse(res, 202, { messageId, conversationId });

@@ -17,8 +17,8 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { DispatchResult, SubtaskResult, TaskDecomposition, TaskRequest } from "./types.js";
 import { atomicWriteFile } from "./atomic-write.js";
+import type { DispatchResult, SubtaskResult, TaskDecomposition, TaskRequest } from "./types.js";
 
 const TASKS_DIR = join(homedir(), ".openclaw", "vwp", "tasks");
 

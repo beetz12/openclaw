@@ -5,14 +5,14 @@
  * jsonResponse helper.
  */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AgentStateManager } from "./agent-state.js";
-import type { KanbanColumnId, ActivityEntry, KanbanSSEEvent } from "./kanban-types.js";
 import * as boardState from "./board-state.js";
 import * as checkpoint from "./checkpoint.js";
+import type { KanbanColumnId, ActivityEntry, KanbanSSEEvent } from "./kanban-types.js";
 import { KANBAN_COLUMNS } from "./kanban-types.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 

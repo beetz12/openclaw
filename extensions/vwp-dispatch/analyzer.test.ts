@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach } from "vitest";
+import { assignTeamMembers, type AssignedDecomposition } from "./analyzer.ts";
 import type { TeamConfig } from "./team-types.ts";
 import type { TaskDecomposition } from "./types.ts";
-import { assignTeamMembers, type AssignedDecomposition } from "./analyzer.ts";
 
 const FIXTURE_DIR = join(import.meta.dirname!, ".test-analyzer-fixtures");
 const TEAM_FILE = join(FIXTURE_DIR, "team.json");

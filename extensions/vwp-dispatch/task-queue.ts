@@ -7,8 +7,8 @@ import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { TaskRequest } from "./types.js";
 import { atomicWriteFile } from "./atomic-write.js";
+import type { TaskRequest } from "./types.js";
 
 type QueueEvent = "task_queued" | "task_started" | "task_completed" | "task_cancelled";
 

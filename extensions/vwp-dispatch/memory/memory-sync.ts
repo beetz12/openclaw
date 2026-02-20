@@ -9,8 +9,8 @@
 import { readFile, access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { MemoryClient, TaskOutcome, LearnedPattern } from "./notebooklm-client.js";
 import { atomicWriteFile } from "../atomic-write.js";
+import type { MemoryClient, TaskOutcome, LearnedPattern } from "./notebooklm-client.js";
 
 const TASKS_DIR = join(homedir(), ".openclaw", "vwp", "tasks");
 const SYNC_MARKER = "synced-to-memory.json";

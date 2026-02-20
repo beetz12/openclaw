@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { ChatMessage } from "./kanban-types.js";
 import { ServerChatStore } from "./chat-store.js";
+import type { ChatMessage } from "./kanban-types.js";
 
 const FIXTURE_DIR = join(import.meta.dirname!, ".test-chat-store-fixtures");
 
