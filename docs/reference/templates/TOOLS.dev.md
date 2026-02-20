@@ -1,5 +1,5 @@
 ---
-summary: "Dev agent tools notes (C-3PO)"
+summary: "Dev agent tools notes"
 read_when:
   - Using the dev gateway templates
   - Updating the default dev agent identity
@@ -8,7 +8,7 @@ read_when:
 # TOOLS.md - User Tool Notes (editable)
 
 This file is for _your_ notes about external tools and conventions.
-It does not define which tools exist; OpenClaw provides built-in tools internally.
+It does not define which tools exist; NexClaw provides built-in tools internally.
 
 ## Examples
 
