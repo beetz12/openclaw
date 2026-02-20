@@ -1,5 +1,5 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KanbanSSEEvent } from "../vwp-dispatch/kanban-types.js";
 
 export type ApprovalEvent =

@@ -1,5 +1,5 @@
-import type { SSEEvent } from "./types.js";
 import { api } from "./client.js";
+import type { SSEEvent } from "./types.js";
 
 export type SSEStatus = "connecting" | "connected" | "disconnected";
 export type SSEEventCallback = (event: SSEEvent) => void;

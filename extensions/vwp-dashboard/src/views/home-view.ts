@@ -1,9 +1,9 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import type { ApprovalStats, PendingMessage, SSEEvent } from "../api/types.js";
 import { api } from "../api/client.js";
 import { sseClient } from "../api/sse.js";
 import { tasksApi, type Task } from "../api/tasks-client.js";
+import type { ApprovalStats, PendingMessage, SSEEvent } from "../api/types.js";
 import { navigate } from "../router.js";
 import { statusIcon, satelliteDish, chevronRight } from "../styles/icons.js";
 import { sharedStyles } from "../styles/shared.js";
