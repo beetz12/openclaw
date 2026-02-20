@@ -5,8 +5,8 @@
  */
 
 import { spawn } from "node:child_process";
-import type { DispatchResult, SkillMatch, SubtaskResult, TaskRequest } from "./types.js";
 import * as checkpoint from "./checkpoint.js";
+import type { DispatchResult, SkillMatch, SubtaskResult, TaskRequest } from "./types.js";
 
 /**
  * Run a single CLI subprocess and capture its stdout.

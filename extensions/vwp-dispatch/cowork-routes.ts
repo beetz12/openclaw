@@ -10,11 +10,9 @@
  *   GET  /vwp/cowork/sessions           — list recent sessions
  */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { execFile } from "node:child_process";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { promisify } from "node:util";
-import type { CoworkSSEEvent } from "./kanban-types.js";
-import type { Project } from "./project-registry.js";
 import {
   startCoworkSession,
   cancelCoworkSession,
@@ -23,6 +21,8 @@ import {
   getRecentSessions,
   getSessionById,
 } from "./cowork-agent.js";
+import type { CoworkSSEEvent } from "./kanban-types.js";
+import type { Project } from "./project-registry.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const execFileAsync = promisify(execFile);

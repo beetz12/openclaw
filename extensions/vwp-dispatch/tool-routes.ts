@@ -9,8 +9,8 @@
  *   DELETE /vwp/tools/runs/:runId      - cancel a run
  */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { execSync } from "node:child_process";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ToolSSEEvent } from "./kanban-types.js";
 import type { LoadedTool, ArgSchema } from "./tool-manifest.js";
 import type { ToolRunner } from "./tool-runner.js";

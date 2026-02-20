@@ -1,10 +1,10 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, it, expect, vi } from "vitest";
 import type { ToolSSEEvent } from "../kanban-types.js";
 import type { LoadedTool, ArgSchema } from "../tool-manifest.js";
-import type { ToolRunner } from "../tool-runner.js";
 import { createToolHttpHandler, type ToolRoutesDeps } from "../tool-routes.js";
+import type { ToolRunner } from "../tool-runner.js";
 
 // ---------- Test helpers ----------
 
