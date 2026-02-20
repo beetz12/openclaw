@@ -121,3 +121,49 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+
+# Database files
+*.sqlite
+*.db
+!*.db.example
+
+# SQLite WAL/SHM journal files
+*.sqlite-wal
+*.sqlite-shm
+
+# VWP runtime artifacts
+.vwp-logs/
+.vwp-pids
+
+# Test artifacts and screenshots (root-level E2E/test captures)
+/e2e-*.png
+/test-*.png
+/vwp-test-*.png
+/chat-*.png
+/mission-control-*.png
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# IDE settings
+.vscode/
+
+# Local notes and memory
+MEMORY.md
+
+# Output and working directories
+output/
+knowledge-work-plugins/
+
+# Swift build databases
+apps/shared/ClawdisKit/.build/
+
+# Next.js build output
+apps/vwp-board/.next/
+apps/vwp-board/out/
+
+# Local env files (may contain secrets)
+**/.env.local
+
+# Temporary docs
+docs/temp_prompt.md
