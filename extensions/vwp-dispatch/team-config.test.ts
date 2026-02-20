@@ -1,12 +1,13 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
-import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { TeamConfig } from "./team-types.ts";
 
 const FIXTURE_DIR = join(import.meta.dirname!, ".test-team-config-fixtures");
 const TEAM_FILE = join(FIXTURE_DIR, "team.json");
+const DB_PATH = join(FIXTURE_DIR, "state.sqlite");
 const TEST_TOKEN = "test-token";
 
 // Mock auth helpers before importing the module under test
@@ -22,6 +23,7 @@ vi.mock("../../src/security/secret-equal.js", () => ({
 }));
 
 const { createTeamHttpHandler } = await import("./team-config.ts");
+const { VwpConfigStore } = await import("./config-store.ts");
 
 // -- Mock helpers ------------------------------------------------------------
 
@@ -53,12 +55,12 @@ function createMockRes(): ServerResponse & { _status: number; _body: unknown } {
     _body: null as unknown,
     setHeader() {},
     end(data?: string) {
-      this._status = this.statusCode;
+      (this as any)._status = (this as any).statusCode;
       if (data) {
         try {
-          this._body = JSON.parse(data);
+          (this as any)._body = JSON.parse(data);
         } catch {
-          this._body = data;
+          (this as any)._body = data;
         }
       }
     },
@@ -85,11 +87,16 @@ const sampleConfig: TeamConfig = {
 
 describe("team-config routes", () => {
   let handler: ReturnType<typeof createTeamHttpHandler>;
+  let store: InstanceType<typeof VwpConfigStore>;
 
   beforeEach(async () => {
     await rm(FIXTURE_DIR, { recursive: true, force: true });
     await mkdir(FIXTURE_DIR, { recursive: true });
-    handler = createTeamHttpHandler({ gatewayToken: TEST_TOKEN }, TEAM_FILE);
+    store = new VwpConfigStore(DB_PATH, { teamFile: TEAM_FILE });
+    handler = createTeamHttpHandler(
+      { gatewayToken: TEST_TOKEN, store },
+      { teamFilePath: TEAM_FILE, dbPath: DB_PATH },
+    );
   });
 
   it("returns false for non-team routes", async () => {
@@ -116,7 +123,7 @@ describe("team-config routes", () => {
     });
 
     it("returns team config wrapped in { team: config } when it exists", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("GET", "/vwp/team");
       const res = createMockRes();
@@ -134,7 +141,7 @@ describe("team-config routes", () => {
     });
 
     it("response does not expose team fields at the top level", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("GET", "/vwp/team");
       const res = createMockRes();
@@ -164,7 +171,7 @@ describe("team-config routes", () => {
     });
 
     it("adds a new member", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const newMember = {
         id: "dev",
@@ -183,14 +190,14 @@ describe("team-config routes", () => {
       expect(res._status).toBe(201);
       expect(res._body).toMatchObject({ id: "dev" });
 
-      // Verify persistence
-      const saved = JSON.parse(await readFile(TEAM_FILE, "utf-8")) as TeamConfig;
+      // Verify persistence via store
+      const saved = store.getTeam()!;
       expect(saved.members).toHaveLength(2);
       expect(saved.members.find((m) => m.id === "dev")).toBeDefined();
     });
 
     it("rejects duplicate member id", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("POST", "/vwp/team/members", {
         id: "ceo",
@@ -208,7 +215,7 @@ describe("team-config routes", () => {
     });
 
     it("rejects invalid member data", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("POST", "/vwp/team/members", {
         id: "bad",
@@ -223,7 +230,7 @@ describe("team-config routes", () => {
 
   describe("PUT /vwp/team/members/:id", () => {
     it("updates an existing member", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("PUT", "/vwp/team/members/ceo", {
         name: "Chief Executive Officer",
@@ -239,14 +246,14 @@ describe("team-config routes", () => {
         active: false,
       });
 
-      // Verify persistence
-      const saved = JSON.parse(await readFile(TEAM_FILE, "utf-8")) as TeamConfig;
+      // Verify persistence via store
+      const saved = store.getTeam()!;
       expect(saved.members[0].name).toBe("Chief Executive Officer");
       expect(saved.members[0].active).toBe(false);
     });
 
     it("returns 404 for nonexistent member", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("PUT", "/vwp/team/members/nonexistent", {
         name: "Ghost",
@@ -270,7 +277,7 @@ describe("team-config routes", () => {
 
   describe("DELETE /vwp/team/members/:id", () => {
     it("removes an existing member", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("DELETE", "/vwp/team/members/ceo");
       const res = createMockRes();
@@ -279,13 +286,13 @@ describe("team-config routes", () => {
       expect(res._status).toBe(200);
       expect(res._body).toMatchObject({ removed: { id: "ceo" } });
 
-      // Verify persistence
-      const saved = JSON.parse(await readFile(TEAM_FILE, "utf-8")) as TeamConfig;
+      // Verify persistence via store
+      const saved = store.getTeam()!;
       expect(saved.members).toHaveLength(0);
     });
 
     it("returns 404 for nonexistent member", async () => {
-      await writeFile(TEAM_FILE, JSON.stringify(sampleConfig));
+      store.saveTeam(sampleConfig);
 
       const req = createMockReq("DELETE", "/vwp/team/members/nobody");
       const res = createMockRes();
