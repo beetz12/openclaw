@@ -14,9 +14,49 @@ The VWP is a task orchestration and agent team management platform built on
 - **Cost tracking and budget enforcement** -- per-task and monthly spend caps
 - **Production hardening** -- atomic writes, health monitoring, graceful shutdown
 
-## Quick Start
+## Global Install (run from anywhere)
 
-Single-command startup via pnpm scripts:
+After building, link the CLI globally so `nexclaw` works from any directory:
+
+```bash
+cd /path/to/openclaw
+pnpm link --global
+```
+
+After linking, `nexclaw` (and `openclaw`) are available system-wide. Re-run after
+rebuilding if the link breaks.
+
+## Running the Platform
+
+### 1. Start the Gateway
+
+The gateway must be running before any other component:
+
+```bash
+nexclaw --dev gateway
+```
+
+This starts the dev gateway on `ws://127.0.0.1:19001` with isolated state
+under `~/.openclaw-dev`.
+
+If the port is stuck from a previous run:
+
+```bash
+lsof -ti:19001 | xargs kill -9
+nexclaw --dev gateway
+```
+
+### 2. Launch the TUI (Terminal UI)
+
+In a separate terminal:
+
+```bash
+nexclaw --dev tui
+```
+
+### 3. Launch Mission Control (Web UI)
+
+Single-command startup via pnpm scripts (run from the project directory):
 
 ```bash
 pnpm vwp:start          # Web-only mode (recommended)
@@ -36,6 +76,14 @@ The start script launches:
 
 - **OpenClaw Gateway** on `http://localhost:18789`
 - **Mission Control (VWP Board)** on `http://localhost:3000`
+
+### 4. Open the Dashboard
+
+```bash
+nexclaw --dev dashboard
+```
+
+Opens the Control UI in your browser with your current auth token.
 
 ## Prerequisites
 
@@ -85,6 +133,50 @@ GEMINI_API_KEY=...
 # OpenRouter
 OPENROUTER_API_KEY=sk-or-...
 ```
+
+## Default Agent Model
+
+The gateway uses the model configured in `~/.openclaw-dev/openclaw.json`. The setup
+script (`bash scripts/setup-dev.sh`) defaults to OpenAI Codex:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai-codex/gpt-5.3-codex"
+      }
+    }
+  }
+}
+```
+
+### Switching to Claude CLI
+
+To use Claude Code (Anthropic) instead of Codex, edit `~/.openclaw-dev/openclaw.json`:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "claude-cli/opus"
+      }
+    }
+  }
+}
+```
+
+Restart the gateway after changing the model. No re-auth is needed if you've already
+authenticated with both providers.
+
+### Available model providers
+
+| Provider            | Model ID                           | Auth Command                                            |
+| ------------------- | ---------------------------------- | ------------------------------------------------------- |
+| OpenAI Codex        | `openai-codex/gpt-5.3-codex`       | `nexclaw onboard --auth-choice openai-codex`            |
+| OpenAI Codex (fast) | `openai-codex/gpt-5.3-codex-spark` | Same as above                                           |
+| Claude CLI          | `claude-cli/opus`                  | `openclaw models auth setup-token --provider anthropic` |
 
 ## Environment Setup
 
@@ -194,7 +286,7 @@ When started via `pnpm vwp:start`:
 Health check:
 
 ```bash
-openclaw doctor
+nexclaw doctor
 curl http://localhost:18789/health
 ```
 
