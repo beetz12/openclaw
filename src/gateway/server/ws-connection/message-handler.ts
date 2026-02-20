@@ -414,7 +414,8 @@ export function attachGatewayWsMessageHandler(params: {
           close(1008, truncateCloseReason(authMessage));
         };
         if (!device) {
-          if (scopes.length > 0 && !allowControlUiBypass) {
+          const isBackendWithSharedAuth = connectParams.client.mode === "backend" && sharedAuthOk;
+          if (scopes.length > 0 && !allowControlUiBypass && !isBackendWithSharedAuth) {
             scopes = [];
             connectParams.scopes = scopes;
           }
