@@ -92,3 +92,54 @@ package-lock.json
 
 # Local iOS signing overrides
 apps/ios/LocalSigning.xcconfig
+
+# Database files
+*.sqlite
+*.db
+!*.db.example
+
+# VWP runtime artifacts
+.vwp-logs/
+.vwp-pids
+
+# Test artifacts and screenshots (root-level E2E/test captures)
+/e2e-*.png
+/test-*.png
+/vwp-test-*.png
+/chat-*.png
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# IDE settings
+.vscode/
+
+# Local notes and memory
+MEMORY.md
+
+# Output and working directories
+output/
+knowledge-work-plugins/
+
+# Swift build databases
+apps/shared/ClawdisKit/.build/
+
+# Next.js build output
+apps/vwp-board/.next/
+apps/vwp-board/out/
+
+# Local env files (may contain secrets)
+**/.env.local
+
+# TypeScript build info (all variants)
+*.tsbuildinfo
+
+# SQLite WAL/SHM journal files
+*.sqlite-wal
+*.sqlite-shm
+
+# Temporary docs
+docs/temp_prompt.md
+
+# Root-level screenshots from testing
+/mission-control-*.png
