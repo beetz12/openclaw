@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ApprovalDB, PendingMessage } from "./db.js";
-import type { ApprovalSSE } from "./sse.js";
 import { getBearerToken } from "../../src/gateway/http-utils.js";
 import { safeEqualSecret } from "../../src/security/secret-equal.js";
+import type { ApprovalDB, PendingMessage } from "./db.js";
+import type { ApprovalSSE } from "./sse.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
