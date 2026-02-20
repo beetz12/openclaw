@@ -9,15 +9,17 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { atomicWriteFile } from "./atomic-write.js";
+import { VwpConfigStore } from "./config-store.js";
 import { TeamMemberSchema, TeamConfigSchema, type TeamConfig } from "./team-types.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
-const TEAM_FILE = join(homedir(), ".openclaw", "vwp", "team.json");
+const VWP_DIR = join(homedir(), ".openclaw", "vwp");
+const TEAM_FILE = join(VWP_DIR, "team.json");
+const ONBOARDING_FILE = join(VWP_DIR, "onboarding.json");
+const STATE_DB = join(VWP_DIR, "state.sqlite");
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -43,27 +45,22 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
   res.end(JSON.stringify(body));
 }
 
-async function loadTeamConfig(filePath: string): Promise<TeamConfig | null> {
-  try {
-    const raw = await readFile(filePath, "utf-8");
-    return JSON.parse(raw) as TeamConfig;
-  } catch {
-    return null;
-  }
-}
-
-async function saveTeamConfig(filePath: string, config: TeamConfig): Promise<void> {
-  config.updatedAt = Date.now();
-  await atomicWriteFile(filePath, JSON.stringify(config, null, 2));
-}
-
 export type TeamConfigDeps = {
   gatewayToken: string | undefined;
+  store?: VwpConfigStore;
 };
 
-export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: string) {
+export function createTeamHttpHandler(
+  deps: TeamConfigDeps,
+  paths?: { teamFilePath?: string; onboardingFilePath?: string; dbPath?: string },
+) {
   const { gatewayToken } = deps;
-  const filePath = teamFilePath ?? TEAM_FILE;
+  const teamFilePath = paths?.teamFilePath ?? TEAM_FILE;
+  const onboardingFilePath = paths?.onboardingFilePath ?? ONBOARDING_FILE;
+  const dbPath = paths?.dbPath ?? STATE_DB;
+  const store =
+    deps.store ??
+    new VwpConfigStore(dbPath, { onboardingFile: onboardingFilePath, teamFile: teamFilePath });
 
   function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
     const token = getBearerToken(req);
@@ -88,7 +85,7 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
 
     // GET /vwp/team — read team config
     if (req.method === "GET" && pathname === "/vwp/team") {
-      const config = await loadTeamConfig(filePath);
+      const config = store.getTeam();
       if (!config) {
         jsonResponse(res, 404, { error: "Team not configured" });
         return true;
@@ -99,7 +96,7 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
 
     // POST /vwp/team/members — add member
     if (req.method === "POST" && pathname === "/vwp/team/members") {
-      const config = await loadTeamConfig(filePath);
+      const config = store.getTeam();
       if (!config) {
         jsonResponse(res, 404, { error: "Team not configured. Complete onboarding first." });
         return true;
@@ -133,7 +130,13 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
       }
 
       config.members.push(member);
-      await saveTeamConfig(filePath, config);
+      config.updatedAt = Date.now();
+      const teamParsed = TeamConfigSchema.safeParse(config);
+      if (!teamParsed.success) {
+        jsonResponse(res, 400, { error: "Invalid team config", details: teamParsed.error.issues });
+        return true;
+      }
+      store.saveTeam(teamParsed.data as TeamConfig);
       jsonResponse(res, 201, member);
       return true;
     }
@@ -142,7 +145,7 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
     const updateMatch = req.method === "PUT" && pathname.match(/^\/vwp\/team\/members\/([^/]+)$/);
     if (updateMatch) {
       const memberId = decodeURIComponent(updateMatch[1]);
-      const config = await loadTeamConfig(filePath);
+      const config = store.getTeam();
       if (!config) {
         jsonResponse(res, 404, { error: "Team not configured" });
         return true;
@@ -174,7 +177,13 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
       }
 
       config.members[memberIdx] = { ...config.members[memberIdx], ...parsed.data };
-      await saveTeamConfig(filePath, config);
+      config.updatedAt = Date.now();
+      const teamParsed = TeamConfigSchema.safeParse(config);
+      if (!teamParsed.success) {
+        jsonResponse(res, 400, { error: "Invalid team config", details: teamParsed.error.issues });
+        return true;
+      }
+      store.saveTeam(teamParsed.data as TeamConfig);
       jsonResponse(res, 200, config.members[memberIdx]);
       return true;
     }
@@ -184,7 +193,7 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
       req.method === "DELETE" && pathname.match(/^\/vwp\/team\/members\/([^/]+)$/);
     if (deleteMatch) {
       const memberId = decodeURIComponent(deleteMatch[1]);
-      const config = await loadTeamConfig(filePath);
+      const config = store.getTeam();
       if (!config) {
         jsonResponse(res, 404, { error: "Team not configured" });
         return true;
@@ -197,7 +206,13 @@ export function createTeamHttpHandler(deps: TeamConfigDeps, teamFilePath?: strin
       }
 
       const removed = config.members.splice(memberIdx, 1)[0];
-      await saveTeamConfig(filePath, config);
+      config.updatedAt = Date.now();
+      const teamParsed = TeamConfigSchema.safeParse(config);
+      if (!teamParsed.success) {
+        jsonResponse(res, 400, { error: "Invalid team config", details: teamParsed.error.issues });
+        return true;
+      }
+      store.saveTeam(teamParsed.data as TeamConfig);
       jsonResponse(res, 200, { removed });
       return true;
     }

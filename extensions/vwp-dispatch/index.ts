@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { getSharedSSE } from "../vwp-approval/sse.js";
@@ -9,6 +10,7 @@ import { createChatHttpHandler } from "./chat-routes.js";
 import { ServerChatStore } from "./chat-store.js";
 import * as checkpoint from "./checkpoint.js";
 import { checkCliHealth } from "./cli-health-check.js";
+import { VwpConfigStore } from "./config-store.js";
 import { loadBusinessContext, loadProfile } from "./context-loader.js";
 import { getMonthlySpend } from "./cost-tracker.js";
 import { createCoworkHttpHandler } from "./cowork-routes.js";
@@ -245,12 +247,19 @@ export default {
     });
     api.registerHttpHandler(chatHandler);
 
+    // Shared singleton store for onboarding + team config (avoids double-open on same SQLite file)
+    const vwpDir = join(homedir(), ".openclaw", "vwp");
+    const configStore = new VwpConfigStore(join(vwpDir, "state.sqlite"), {
+      onboardingFile: join(vwpDir, "onboarding.json"),
+      teamFile: join(vwpDir, "team.json"),
+    });
+
     // Onboarding routes
-    const onboardingHandler = createOnboardingHttpHandler({ gatewayToken });
+    const onboardingHandler = createOnboardingHttpHandler({ gatewayToken, store: configStore });
     api.registerHttpHandler(onboardingHandler);
 
     // Team config routes
-    const teamHandler = createTeamHttpHandler({ gatewayToken });
+    const teamHandler = createTeamHttpHandler({ gatewayToken, store: configStore });
     api.registerHttpHandler(teamHandler);
 
     // Project registry routes

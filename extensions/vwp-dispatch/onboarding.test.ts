@@ -1,12 +1,13 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const FIXTURE_DIR = join(import.meta.dirname!, ".test-onboarding-fixtures");
 const ONBOARDING_FILE = join(FIXTURE_DIR, "onboarding.json");
 const TEAM_FILE = join(FIXTURE_DIR, "team.json");
+const DB_PATH = join(FIXTURE_DIR, "state.sqlite");
 const TEST_TOKEN = "test-token";
 
 // Mock auth helpers
@@ -22,6 +23,7 @@ vi.mock("../../src/security/secret-equal.js", () => ({
 }));
 
 const { createOnboardingHttpHandler } = await import("./onboarding.ts");
+const { VwpConfigStore } = await import("./config-store.ts");
 
 // -- Mock helpers ------------------------------------------------------------
 
@@ -51,12 +53,12 @@ function createMockRes(): ServerResponse & { _status: number; _body: unknown } {
     _body: null as unknown,
     setHeader() {},
     end(data?: string) {
-      this._status = this.statusCode;
+      (this as any)._status = (this as any).statusCode;
       if (data) {
         try {
-          this._body = JSON.parse(data);
+          (this as any)._body = JSON.parse(data);
         } catch {
-          this._body = data;
+          (this as any)._body = data;
         }
       }
     },
@@ -92,13 +94,15 @@ const validPayload = {
 
 describe("onboarding routes", () => {
   let handler: ReturnType<typeof createOnboardingHttpHandler>;
+  let store: InstanceType<typeof VwpConfigStore>;
 
   beforeEach(async () => {
     await rm(FIXTURE_DIR, { recursive: true, force: true });
     await mkdir(FIXTURE_DIR, { recursive: true });
+    store = new VwpConfigStore(DB_PATH, { onboardingFile: ONBOARDING_FILE, teamFile: TEAM_FILE });
     handler = createOnboardingHttpHandler(
-      { gatewayToken: TEST_TOKEN },
-      { onboardingFile: ONBOARDING_FILE, teamFile: TEAM_FILE },
+      { gatewayToken: TEST_TOKEN, store },
+      { onboardingFile: ONBOARDING_FILE, teamFile: TEAM_FILE, dbPath: DB_PATH },
     );
   });
 
@@ -118,7 +122,7 @@ describe("onboarding routes", () => {
   });
 
   describe("GET /vwp/onboarding", () => {
-    it("returns completed:false when no onboarding file exists", async () => {
+    it("returns completed:false when no onboarding data exists", async () => {
       const req = createMockReq("GET", "/vwp/onboarding");
       const res = createMockRes();
       await handler(req, res);
@@ -127,9 +131,14 @@ describe("onboarding routes", () => {
       expect(res._body).toEqual({ completed: false });
     });
 
-    it("returns onboarding data when file exists", async () => {
-      const data = { completed: true, completedAt: 12345, businessType: "consulting" };
-      await writeFile(ONBOARDING_FILE, JSON.stringify(data));
+    it("returns onboarding data when it exists", async () => {
+      store.saveOnboarding({
+        completed: true,
+        completedAt: 12345,
+        businessType: "consulting",
+        businessName: "Test",
+        userName: "Alice",
+      });
 
       const req = createMockReq("GET", "/vwp/onboarding");
       const res = createMockRes();
@@ -149,15 +158,14 @@ describe("onboarding routes", () => {
       expect(res._status).toBe(200);
       expect(res._body).toEqual({ ok: true });
 
-      // Verify onboarding file
-      const onboarding = JSON.parse(await readFile(ONBOARDING_FILE, "utf-8"));
+      // Verify via store
+      const onboarding = store.getOnboarding()!;
       expect(onboarding.completed).toBe(true);
       expect(onboarding.businessType).toBe("consulting");
       expect(onboarding.userName).toBe("Alice");
       expect(onboarding.completedAt).toBeGreaterThan(0);
 
-      // Verify team file
-      const team = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      const team = store.getTeam()!;
       expect(team.businessType).toBe("consulting");
       expect(team.businessName).toBe("Acme Corp");
       expect(team.members).toHaveLength(2);
@@ -176,7 +184,7 @@ describe("onboarding routes", () => {
       expect(res._status).toBe(200);
 
       // Should have derived the consulting default team (6 members), not the empty array
-      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      const savedTeam = store.getTeam()!;
       expect(savedTeam.members.length).toBeGreaterThan(0);
       expect(savedTeam.members.find((m: { id: string }) => m.id === "ceo")).toBeDefined();
     });
@@ -190,7 +198,7 @@ describe("onboarding routes", () => {
       expect(res._status).toBe(200);
 
       // Should have derived the consulting default team
-      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      const savedTeam = store.getTeam()!;
       expect(savedTeam.members.length).toBeGreaterThan(0);
     });
 
@@ -205,7 +213,7 @@ describe("onboarding routes", () => {
 
       expect(res._status).toBe(200);
 
-      const savedTeam = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      const savedTeam = store.getTeam()!;
       expect(savedTeam.businessType).toBe("custom");
       expect(savedTeam.members).toHaveLength(1);
       expect(savedTeam.members[0].id).toBe("ceo");
@@ -268,16 +276,27 @@ describe("onboarding routes", () => {
 
       expect(res._status).toBe(200);
 
-      const team = JSON.parse(await readFile(TEAM_FILE, "utf-8"));
+      const team = store.getTeam()!;
       expect(team.businessType).toBe("ecommerce");
     });
   });
 
   describe("DELETE /vwp/onboarding", () => {
-    it("returns { reset: true } and deletes onboarding and team files", async () => {
-      // Create both files first
-      await writeFile(ONBOARDING_FILE, JSON.stringify({ completed: true }));
-      await writeFile(TEAM_FILE, JSON.stringify({ businessType: "consulting" }));
+    it("returns { reset: true } and clears store data", async () => {
+      // Seed data first
+      store.saveOnboarding({
+        completed: true,
+        completedAt: Date.now(),
+        businessType: "consulting",
+        businessName: "Test",
+        userName: "Alice",
+      });
+      store.saveTeam({
+        businessType: "consulting",
+        businessName: "Test",
+        members: [],
+        updatedAt: Date.now(),
+      });
 
       const req = createMockReq("DELETE", "/vwp/onboarding");
       const res = createMockRes();
@@ -286,13 +305,12 @@ describe("onboarding routes", () => {
       expect(res._status).toBe(200);
       expect(res._body).toEqual({ reset: true });
 
-      // Both files should be deleted
-      await expect(readFile(ONBOARDING_FILE, "utf-8")).rejects.toThrow();
-      await expect(readFile(TEAM_FILE, "utf-8")).rejects.toThrow();
+      // Store should be empty
+      expect(store.getOnboarding()).toBeNull();
+      expect(store.getTeam()).toBeNull();
     });
 
-    it("succeeds even when files do not exist", async () => {
-      // No files exist — directory is empty
+    it("succeeds even when no data exists", async () => {
       const req = createMockReq("DELETE", "/vwp/onboarding");
       const res = createMockRes();
       await handler(req, res);
@@ -301,9 +319,14 @@ describe("onboarding routes", () => {
       expect(res._body).toEqual({ reset: true });
     });
 
-    it("succeeds when only the onboarding file exists (team file missing)", async () => {
-      await writeFile(ONBOARDING_FILE, JSON.stringify({ completed: true }));
-      // No team file
+    it("succeeds when only onboarding data exists (no team)", async () => {
+      store.saveOnboarding({
+        completed: true,
+        completedAt: Date.now(),
+        businessType: "consulting",
+        businessName: "Test",
+        userName: "Alice",
+      });
 
       const req = createMockReq("DELETE", "/vwp/onboarding");
       const res = createMockRes();
@@ -311,7 +334,7 @@ describe("onboarding routes", () => {
 
       expect(res._status).toBe(200);
       expect(res._body).toEqual({ reset: true });
-      await expect(readFile(ONBOARDING_FILE, "utf-8")).rejects.toThrow();
+      expect(store.getOnboarding()).toBeNull();
     });
   });
 });

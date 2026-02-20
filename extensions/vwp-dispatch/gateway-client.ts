@@ -276,7 +276,10 @@ export class GatewayClient extends EventEmitter {
             platform: "node",
             mode: "backend",
           },
-          scopes: ["operator.admin"],
+          role: "operator",
+          // Request explicit read/write scopes for chat.send and status RPCs.
+          // Some gateway policies do not treat operator.admin as implying write.
+          scopes: ["operator.admin", "operator.read", "operator.write"],
           auth: {
             token: this.token,
           },

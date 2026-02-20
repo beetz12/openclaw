@@ -7,10 +7,9 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { atomicWriteFile } from "./atomic-write.js";
+import { VwpConfigStore } from "./config-store.js";
 import { getDefaultTeam } from "./team-templates.js";
 import { OnboardingPayloadSchema, TeamConfigSchema } from "./team-types.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
@@ -19,6 +18,7 @@ const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 const VWP_DIR = join(homedir(), ".openclaw", "vwp");
 const ONBOARDING_FILE = join(VWP_DIR, "onboarding.json");
 const TEAM_FILE = join(VWP_DIR, "team.json");
+const STATE_DB = join(VWP_DIR, "state.sqlite");
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,15 +46,18 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 
 export type OnboardingDeps = {
   gatewayToken: string | undefined;
+  store?: VwpConfigStore;
 };
 
 export function createOnboardingHttpHandler(
   deps: OnboardingDeps,
-  paths?: { onboardingFile?: string; teamFile?: string },
+  paths?: { onboardingFile?: string; teamFile?: string; dbPath?: string },
 ) {
   const { gatewayToken } = deps;
   const onboardingFile = paths?.onboardingFile ?? ONBOARDING_FILE;
   const teamFile = paths?.teamFile ?? TEAM_FILE;
+  const dbPath = paths?.dbPath ?? STATE_DB;
+  const store = deps.store ?? new VwpConfigStore(dbPath, { onboardingFile, teamFile });
 
   function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
     const token = getBearerToken(req);
@@ -79,13 +82,8 @@ export function createOnboardingHttpHandler(
 
     // GET /vwp/onboarding — read onboarding status
     if (req.method === "GET" && pathname === "/vwp/onboarding") {
-      try {
-        const raw = await readFile(onboardingFile, "utf-8");
-        const data = JSON.parse(raw);
-        jsonResponse(res, 200, data);
-      } catch {
-        jsonResponse(res, 200, { completed: false });
-      }
+      const data = store.getOnboarding();
+      jsonResponse(res, 200, data ?? { completed: false });
       return true;
     }
 
@@ -121,7 +119,7 @@ export function createOnboardingHttpHandler(
         businessName,
         userName,
       };
-      await atomicWriteFile(onboardingFile, JSON.stringify(onboardingData, null, 2));
+      store.saveOnboarding(onboardingData);
 
       // Save team config
       const teamConfig = {
@@ -138,7 +136,7 @@ export function createOnboardingHttpHandler(
         return true;
       }
 
-      await atomicWriteFile(teamFile, JSON.stringify(teamParsed.data, null, 2));
+      store.saveTeam(teamParsed.data);
 
       jsonResponse(res, 200, { ok: true });
       return true;
@@ -146,15 +144,7 @@ export function createOnboardingHttpHandler(
 
     // DELETE /vwp/onboarding — reset onboarding
     if (req.method === "DELETE" && pathname === "/vwp/onboarding") {
-      const deleteFile = async (path: string) => {
-        try {
-          await unlink(path);
-        } catch (err: any) {
-          if (err.code !== "ENOENT") throw err;
-        }
-      };
-      await deleteFile(onboardingFile);
-      await deleteFile(teamFile);
+      store.reset();
       jsonResponse(res, 200, { reset: true });
       return true;
     }
