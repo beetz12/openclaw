@@ -1,10 +1,10 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import type { TaskQueue } from "./task-queue.js";
-import type { TaskRequest } from "./types.js";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import * as checkpoint from "./checkpoint.js";
 import { hasDecomposition } from "./checkpoint.js";
 import { sanitizeTaskText } from "./sanitize.js";
+import type { TaskQueue } from "./task-queue.js";
+import type { TaskRequest } from "./types.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB

@@ -7,8 +7,8 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { BoardState, KanbanColumnId } from "./kanban-types.js";
 import { atomicWriteFile } from "./atomic-write.js";
+import type { BoardState, KanbanColumnId } from "./kanban-types.js";
 import { KANBAN_COLUMNS } from "./kanban-types.js";
 
 const BOARD_DIR = join(homedir(), ".openclaw", "vwp", "board");

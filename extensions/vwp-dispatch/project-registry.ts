@@ -10,8 +10,8 @@
  *   POST   /vwp/projects/:id/mcp-servers - update per-project MCP server config
  */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFile, realpath, stat } from "node:fs/promises";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
