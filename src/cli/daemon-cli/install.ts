@@ -148,6 +148,7 @@ export async function runDaemonInstall(opts: DaemonInstallOptions) {
     port,
     token,
     runtime: runtimeRaw,
+    devMode: opts.dev ? true : undefined,
     warn: (message) => {
       if (json) {
         warnings.push(message);
