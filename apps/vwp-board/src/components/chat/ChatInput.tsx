@@ -129,7 +129,7 @@ export function ChatInput({
             onClick={() => {
               void toggleCall();
             }}
-            disabled={disabled && !voiceActive}
+            disabled={false}
             className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
               voiceActive
                 ? "border-[var(--color-primary)] bg-[var(--color-primary-bg)] text-[var(--color-primary)]"
