@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  useEffect,
   useState,
   useRef,
   useCallback,
   type KeyboardEvent,
   type FormEvent,
 } from "react";
+import { useGeminiVoiceCall } from "@/hooks/useGeminiVoiceCall";
 
 interface ChatInputProps {
   onSend: (text: string, asTask?: boolean) => void;
@@ -25,6 +27,15 @@ export function ChatInput({
   const [text, setText] = useState("");
   const [asTask, setAsTask] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const {
+    status: voiceStatus,
+    error: voiceError,
+    interimTranscript,
+    supported: voiceSupported,
+    active: voiceActive,
+    toggleCall,
+    stopCall,
+  } = useGeminiVoiceCall();
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -33,6 +44,12 @@ export function ChatInput({
     const maxHeight = LINE_HEIGHT * MAX_LINES + 16; // padding
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, []);
+
+  useEffect(() => {
+    if (disabled && voiceActive) {
+      void stopCall();
+    }
+  }, [disabled, stopCall, voiceActive]);
 
   const handleSubmit = useCallback(
     (e?: FormEvent) => {
@@ -62,6 +79,22 @@ export function ChatInput({
   );
 
   const canSend = text.trim().length > 0 && !disabled && !isStreaming;
+  const callStatusLabel =
+    voiceStatus === "connecting"
+      ? "Connecting"
+      : voiceStatus === "live"
+        ? "Live"
+        : voiceStatus === "error"
+          ? "Error"
+          : "Idle";
+  const callBadgeClass =
+    voiceStatus === "live"
+      ? "border-emerald-500 bg-emerald-500/10 text-emerald-700"
+      : voiceStatus === "connecting"
+        ? "border-blue-500 bg-blue-500/10 text-blue-700"
+        : voiceStatus === "error"
+          ? "border-rose-500 bg-rose-500/10 text-rose-700"
+          : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]";
 
   return (
     <form
@@ -91,56 +124,66 @@ export function ChatInput({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {/* Run as task toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              void toggleCall();
+            }}
+            disabled={disabled && !voiceActive}
+            className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+              voiceActive
+                ? "border-[var(--color-primary)] bg-[var(--color-primary-bg)] text-[var(--color-primary)]"
+                : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)]"
+            } disabled:opacity-50`}
+            aria-label={voiceActive ? "Stop voice call" : "Start voice call"}
+            title={voiceActive ? "Stop voice call" : "Start voice call"}
+          >
+            {voiceStatus === "connecting"
+              ? "📞 Connecting…"
+              : voiceActive
+                ? "📞 End call"
+                : voiceStatus === "error"
+                  ? "📞 Retry call"
+                  : "📞 Start call"}
+          </button>
+
+          {voiceActive && (
+            <button
+              type="button"
+              onClick={() => {
+                void stopCall();
+              }}
+              className="rounded-lg border border-rose-500/70 bg-rose-500/10 px-2.5 py-2 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-500/20"
+              aria-label="Stop call"
+              title="Stop call"
+            >
+              Stop
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setAsTask((prev) => !prev)}
             disabled={disabled}
-            className={`rounded-lg px-2 py-2 text-xs font-medium transition-colors ${
+            className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
               asTask
-                ? "bg-[var(--color-primary)] text-white"
-                : "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)]"
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)]"
             } disabled:opacity-50`}
-            title={asTask ? "Will run as task" : "Run as task"}
+            aria-label={asTask ? "Task mode enabled" : "Run as task"}
+            title={asTask ? "Task mode enabled" : "Run as task"}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              className="inline-block"
-            >
-              <path
-                d="M3 8h10M10 5l3 3-3 3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            {asTask ? "Task mode: ON" : "Run as task"}
           </button>
 
-          {/* Send button */}
           <button
             type="submit"
             disabled={!canSend}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Send message"
+            className="rounded-xl bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Send chat message"
+            title="Send chat message"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-            >
-              <path
-                d="M2.25 9h13.5M10.5 3.75L15.75 9l-5.25 5.25"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            Send
           </button>
         </div>
       </div>
@@ -149,6 +192,29 @@ export function ChatInput({
         <p className="mt-1.5 text-xs text-[var(--color-primary)]">
           This message will be dispatched as a task to your team.
         </p>
+      )}
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${callBadgeClass}`}
+        >
+          {voiceStatus === "connecting" || voiceStatus === "live" ? (
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+          ) : null}
+          Call: {callStatusLabel}
+        </span>
+        {interimTranscript && voiceStatus === "live" && (
+          <span className="text-xs text-[var(--color-text-secondary)]">
+            Heard: {interimTranscript}
+          </span>
+        )}
+      </div>
+      {!voiceSupported && (
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+          Voice call mode isn’t supported in this browser. Try Chrome or Safari.
+        </p>
+      )}
+      {voiceError && (
+        <p className="mt-1 text-xs text-amber-600">{voiceError}</p>
       )}
     </form>
   );

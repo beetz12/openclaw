@@ -4,6 +4,7 @@ import type { ChatMessage as ChatMessageType } from "@/types/chat";
 import { TaskDispatchCard } from "./TaskDispatchCard";
 import { IntentClarifyCard } from "./IntentClarifyCard";
 import { TeamSuggestCard } from "./TeamSuggestCard";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -51,7 +52,11 @@ export function ChatMessage({
           }`}
         >
           {message.content && (
-            <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+            isUser ? (
+              <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+            ) : (
+              <MarkdownMessage content={message.content} />
+            )
           )}
 
           {message.taskDispatch && (

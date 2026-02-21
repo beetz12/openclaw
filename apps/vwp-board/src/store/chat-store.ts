@@ -39,6 +39,7 @@ export interface ChatStore {
   isStreaming: boolean;
   streamingMessageId: string | null;
   streamingContent: string;
+  isPendingResponse: boolean;
   gatewayConnected: boolean;
   onboardingComplete: boolean;
   teamConfig: TeamConfig | null;
@@ -46,6 +47,7 @@ export interface ChatStore {
   isThinking: boolean;
   thinkingElapsedMs: number;
   thinkingMessageId: string | null;
+  voiceModeEnabled: boolean;
 
   // Actions
   sendMessage: (text: string, asTask?: boolean) => Promise<void>;
@@ -58,6 +60,7 @@ export interface ChatStore {
   clearHistory: () => void;
   handleChatSSEEvent: (event: unknown) => void;
   setGatewayConnected: (connected: boolean) => void;
+  setVoiceModeEnabled: (enabled: boolean) => void;
 
   // Internal
   _loadFromStorage: () => void;
@@ -114,6 +117,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isStreaming: false,
   streamingMessageId: null,
   streamingContent: "",
+  isPendingResponse: false,
   gatewayConnected: false,
   onboardingComplete: false,
   teamConfig: null,
@@ -121,11 +125,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isThinking: false,
   thinkingElapsedMs: 0,
   thinkingMessageId: null,
+  voiceModeEnabled: false,
 
   cancelChat: async () => {
     try {
       await kanbanApi.cancelChat();
-      set({ isThinking: false, thinkingElapsedMs: 0, thinkingMessageId: null });
+      set({
+        isPendingResponse: false,
+        isThinking: false,
+        thinkingElapsedMs: 0,
+        thinkingMessageId: null,
+      });
     } catch {
       // Cancel is best-effort
     }
@@ -141,6 +151,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     set((state) => ({
       messages: trimMessages([...state.messages, userMessage]),
+      isPendingResponse: true,
+      isThinking: false,
+      thinkingElapsedMs: 0,
+      thinkingMessageId: null,
     }));
     get()._saveToStorage();
 
@@ -161,8 +175,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const seen = new Set(get().messages.map((m) => m.id));
 
       const poll = async (): Promise<void> => {
-        if (Date.now() - startedAt > timeoutMs) {return;}
+        if (Date.now() - startedAt > timeoutMs) {
+          set({
+            isPendingResponse: false,
+            isThinking: false,
+            thinkingElapsedMs: 0,
+            thinkingMessageId: null,
+          });
+          return;
+        }
         try {
+          get().messages.forEach((m) => {
+            seen.add(m.id);
+          });
           const history = await kanbanApi.getChatHistory({ conversationId, limit: 30 });
           const incoming = (history.messages ?? [])
             .filter((m) => !seen.has(m.id))
@@ -182,7 +207,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             get()._saveToStorage();
 
             const hasAssistantReply = incoming.some((m) => m.role === "assistant" || m.role === "system");
-            if (hasAssistantReply) {return;}
+            if (hasAssistantReply) {
+              set({
+                isPendingResponse: false,
+                isThinking: false,
+                thinkingElapsedMs: 0,
+                thinkingMessageId: null,
+              });
+              return;
+            }
           }
         } catch {
           // Keep retrying until timeout.
@@ -203,6 +236,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       };
       set((state) => ({
         messages: trimMessages([...state.messages, errorMessage]),
+        isPendingResponse: false,
+        isThinking: false,
+        thinkingElapsedMs: 0,
+        thinkingMessageId: null,
       }));
       get()._saveToStorage();
     }
@@ -281,7 +318,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   clearHistory: () => {
-    set({ messages: [], conversationId: null });
+    set({
+      messages: [],
+      conversationId: null,
+      isPendingResponse: false,
+      isStreaming: false,
+      streamingMessageId: null,
+      streamingContent: "",
+      isThinking: false,
+      thinkingElapsedMs: 0,
+      thinkingMessageId: null,
+    });
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -291,11 +338,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set({ gatewayConnected: connected });
   },
 
+  setVoiceModeEnabled: (enabled) => {
+    set({ voiceModeEnabled: enabled });
+  },
+
   handleChatSSEEvent: (event) => {
     const ev = event as ChatSSEEvent;
 
     switch (ev.type) {
       case "chat_message": {
+        flushStreamBuffer(set);
+        if (!ev.done) {
+          set({
+            isStreaming: true,
+            streamingMessageId: ev.messageId,
+            streamingContent: ev.content,
+            isPendingResponse: true,
+          });
+          break;
+        }
         // Backend sends: { type: "chat_message"; messageId: string; role: "assistant"; content: string; done: boolean }
         const completedMessage: ChatMessage = {
           id: ev.messageId,
@@ -308,6 +369,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           isStreaming: false,
           streamingMessageId: null,
           streamingContent: "",
+          isPendingResponse: false,
           isThinking: false,
           thinkingElapsedMs: 0,
           thinkingMessageId: null,
@@ -324,6 +386,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             isStreaming: true,
             streamingMessageId: ev.messageId,
             streamingContent: "",
+            isPendingResponse: true,
           });
         }
         appendStreamToken(ev.token, set);
@@ -340,6 +403,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
         set((state) => ({
           messages: trimMessages([...state.messages, taskMessage]),
+          isPendingResponse: false,
+          isThinking: false,
+          thinkingElapsedMs: 0,
+          thinkingMessageId: null,
         }));
         get()._saveToStorage();
         break;
@@ -355,6 +422,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
         set((state) => ({
           messages: trimMessages([...state.messages, clarifyMessage]),
+          isPendingResponse: false,
+          isThinking: false,
+          thinkingElapsedMs: 0,
+          thinkingMessageId: null,
         }));
         get()._saveToStorage();
         break;
@@ -370,6 +441,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
         set((state) => ({
           messages: trimMessages([...state.messages, suggestMessage]),
+          isPendingResponse: false,
+          isThinking: false,
+          thinkingElapsedMs: 0,
+          thinkingMessageId: null,
         }));
         get()._saveToStorage();
         break;
@@ -377,6 +452,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       case "chat_thinking": {
         set({
+          isPendingResponse: true,
           isThinking: true,
           thinkingElapsedMs: ev.elapsed_ms ?? 0,
           thinkingMessageId: ev.messageId ?? null,

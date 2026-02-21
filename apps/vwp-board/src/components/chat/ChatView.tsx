@@ -12,6 +12,7 @@ export function ChatView() {
   const isStreaming = useChatStore((s) => s.isStreaming);
   const streamingContent = useChatStore((s) => s.streamingContent);
   const gatewayConnected = useChatStore((s) => s.gatewayConnected);
+  const isPendingResponse = useChatStore((s) => s.isPendingResponse);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const confirmTask = useChatStore((s) => s.confirmTask);
   const cancelTask = useChatStore((s) => s.cancelTask);
@@ -26,7 +27,7 @@ export function ChatView() {
   // Load messages from localStorage on mount, then load history
   useEffect(() => {
     _loadFromStorage();
-    loadHistory();
+    void loadHistory();
   }, [_loadFromStorage, loadHistory]);
 
   // Auto-scroll to bottom on new messages or streaming content
@@ -36,7 +37,7 @@ export function ChatView() {
 
   const handleSend = useCallback(
     (text: string, asTask?: boolean) => {
-      sendMessage(text, asTask);
+      void sendMessage(text, asTask);
     },
     [sendMessage],
   );
@@ -84,7 +85,7 @@ export function ChatView() {
           />
         ))}
 
-        {isStreaming && <ChatStream content={streamingContent} />}
+        {(isStreaming || isPendingResponse) && <ChatStream content={streamingContent} />}
 
         <div ref={bottomRef} />
       </div>

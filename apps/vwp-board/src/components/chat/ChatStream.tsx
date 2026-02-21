@@ -28,7 +28,7 @@ export function ChatStream({ content }: ChatStreamProps) {
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-accent)] [animation-delay:300ms]" />
             </div>
             <span className="text-xs text-[var(--color-text-secondary)]">
-              Thinking{elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : "..."}
+              Molty is thinking{elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : "..."}
             </span>
             <button
               onClick={cancelChat}
