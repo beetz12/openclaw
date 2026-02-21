@@ -5,6 +5,7 @@ const BASE_URL_KEY = "vwp-dashboard-base-url";
 
 const INITIAL_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
+const ENDPOINT_RECHECK_MS = 60_000;
 
 type Handler = (data: unknown) => void;
 
@@ -17,6 +18,7 @@ export class BoardSSEClient {
   private _lastHeartbeat = 0;
   private _heartbeatChecker: ReturnType<typeof setInterval> | null = null;
   private _staleCallbacks = new Set<(stale: boolean) => void>();
+  private _endpointUnavailableUntil = 0;
 
   get connected(): boolean {
     return (
@@ -38,6 +40,9 @@ export class BoardSSEClient {
   connect(baseUrl?: string): void {
     if (this._source) {return;}
     if (typeof EventSource === "undefined") {return;} // SSR guard
+    if (Date.now() < this._endpointUnavailableUntil) {
+      return;
+    }
 
     this._intentionalClose = false;
     const base =
@@ -59,28 +64,47 @@ export class BoardSSEClient {
       url.searchParams.set("token", token);
     }
 
-    const source = new EventSource(url.toString());
-    this._source = source;
+    // Preflight the endpoint. If it's not SSE, avoid rapid reconnect loops
+    // that spam the console with MIME type errors.
+    void (async () => {
+      try {
+        const resp = await fetch(url.toString(), {
+          headers: { Accept: "text/event-stream" },
+          cache: "no-store",
+        });
+        const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+        if (!resp.ok || !contentType.includes("text/event-stream")) {
+          this._endpointUnavailableUntil = Date.now() + ENDPOINT_RECHECK_MS;
+          this._scheduleReconnect(baseUrl);
+          return;
+        }
+      } catch {
+        this._scheduleReconnect(baseUrl);
+        return;
+      }
 
-    source.onopen = () => {
+      const source = new EventSource(url.toString());
+      this._source = source;
+
+    source.addEventListener("open", () => {
       this._retryMs = INITIAL_RETRY_MS;
       this._lastHeartbeat = Date.now();
       this._startHeartbeatChecker();
-    };
+    });
 
-    source.onerror = () => {
+    source.addEventListener("error", () => {
       this._cleanup();
       if (!this._intentionalClose) {
         this._scheduleReconnect(baseUrl);
       }
-    };
+    });
 
     // Listen for typed events. The server sends events with
     // `event: <type>` so we listen on specific event names.
     // Also listen for generic `message` events as a fallback.
-    source.onmessage = (ev) => {
+    source.addEventListener("message", (ev) => {
       this._dispatch(ev);
-    };
+    });
 
     /**
      * SSE Event Type Registration (TWO-PLACE RULE):
@@ -134,11 +158,12 @@ export class BoardSSEClient {
       "cowork_approval_needed",
     ];
 
-    for (const type of eventTypes) {
-      source.addEventListener(type, (ev) => {
-        this._dispatch(ev);
-      });
-    }
+      for (const type of eventTypes) {
+        source.addEventListener(type, (ev) => {
+          this._dispatch(ev);
+        });
+      }
+    })();
   }
 
   disconnect(): void {
