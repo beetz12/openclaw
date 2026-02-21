@@ -48,6 +48,7 @@ export class GeminiLiveVoice {
   private captureGainNode: GainNode | null = null;
   private playbackContext: AudioContext | null = null;
   private playbackCursor = 0;
+  private activeSources = new Set<AudioBufferSourceNode>();
 
   private status: GeminiLiveCallStatus = "idle";
   private interimTranscript = "";
@@ -114,9 +115,15 @@ export class GeminiLiveVoice {
       }
     }
 
-    // We explicitly ask for speech rendering only so Gemini remains voice I/O.
+    // sendClientContent with turnComplete triggers the model to generate an audio response.
+    // sendRealtimeInput only handles media/audio blobs — text parts are silently dropped.
     this.ttsSession.sendClientContent({
-      turns: `Speak this naturally, preserving meaning and details:\n${prompt}`,
+      turns: [
+        {
+          role: "user",
+          parts: [{ text: `Speak this naturally, preserving meaning and details:\n${prompt}` }],
+        },
+      ],
       turnComplete: true,
     });
   }
@@ -141,7 +148,12 @@ export class GeminiLiveVoice {
           },
           onclose: () => {
             if (this.status === "live" && !this.isStopping) {
-              this.handleRuntimeError("Gemini STT session closed.");
+              // STT closed but keep the class alive for TTS. Clean up mic
+              // capture since there's nowhere to send audio, then notify the
+              // hook so it can start the browser-STT fallback.
+              this.sttSession = null;
+              this.stopMicCapture();
+              this.reportError("Gemini STT session closed.");
             }
           },
         },
@@ -162,6 +174,9 @@ export class GeminiLiveVoice {
               },
             },
           },
+          outputAudioTranscription: {},
+          systemInstruction:
+            "You are a text-to-speech assistant. Read the user's text naturally and expressively. Do not add extra commentary.",
         },
         callbacks: {
           onmessage: (message) => {
@@ -291,20 +306,21 @@ export class GeminiLiveVoice {
   }
 
   private handleTtsMessage(message: LiveServerMessage): void {
-    const parts = message.serverContent?.modelTurn?.parts ?? [];
-    let hasInlineAudio = false;
-
-    for (const part of parts) {
-      const inlineData = part.inlineData;
-      if (!inlineData?.data || !inlineData.mimeType?.startsWith("audio/")) {
-        continue;
+    // Handle interruptions — stop all queued audio immediately.
+    if (message.serverContent?.interrupted) {
+      for (const src of this.activeSources) {
+        try { src.stop(); } catch { /* already stopped */ }
       }
-      hasInlineAudio = true;
-      void this.enqueueAudioChunk(inlineData.data, inlineData.mimeType);
+      this.activeSources.clear();
+      this.playbackCursor = 0;
+      return;
     }
 
-    if (!hasInlineAudio && message.data) {
-      void this.enqueueAudioChunk(message.data, `audio/pcm;rate=${DEFAULT_TTS_SAMPLE_RATE}`);
+    // Extract audio from the first part with inlineData.
+    const base64Audio =
+      message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+    if (base64Audio) {
+      void this.enqueueAudioChunk(base64Audio, `audio/pcm;rate=${DEFAULT_TTS_SAMPLE_RATE}`);
     }
   }
 
@@ -353,28 +369,25 @@ export class GeminiLiveVoice {
     source.buffer = buffer;
     source.connect(context.destination);
 
-    this.playbackCursor = Math.max(this.playbackCursor, context.currentTime + 0.02);
+    this.playbackCursor = Math.max(this.playbackCursor, context.currentTime);
     source.start(this.playbackCursor);
     this.playbackCursor += buffer.duration;
+
+    this.activeSources.add(source);
+    source.onended = () => { this.activeSources.delete(source); };
   }
 
   private async ensurePlaybackContext(): Promise<AudioContext> {
     if (!this.playbackContext) {
-      this.playbackContext = new AudioContext();
+      // Match the Gemini TTS output sample rate for correct playback speed.
+      this.playbackContext = new AudioContext({ sampleRate: DEFAULT_TTS_SAMPLE_RATE });
       await this.playbackContext.resume();
       this.playbackCursor = this.playbackContext.currentTime;
     }
     return this.playbackContext;
   }
 
-  private async teardown(): Promise<void> {
-    if (this.isStopping) {
-      return;
-    }
-    this.isStopping = true;
-
-    // Stop the audio processor FIRST so onaudioprocess can no longer fire and
-    // attempt to send on a WebSocket that is transitioning to CLOSING state.
+  private stopMicCapture(): void {
     if (this.captureProcessor) {
       this.captureProcessor.onaudioprocess = null;
       this.captureProcessor.disconnect();
@@ -388,6 +401,24 @@ export class GeminiLiveVoice {
       this.captureGainNode.disconnect();
       this.captureGainNode = null;
     }
+    if (this.captureContext) {
+      void this.captureContext.close();
+      this.captureContext = null;
+    }
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach((track) => track.stop());
+      this.mediaStream = null;
+    }
+  }
+
+  private async teardown(): Promise<void> {
+    if (this.isStopping) {
+      return;
+    }
+    this.isStopping = true;
+
+    // Stop mic capture first so onaudioprocess can't race with session close.
+    this.stopMicCapture();
 
     // Now safe to close sessions — no audio callbacks can race.
     const stt = this.sttSession;
@@ -406,15 +437,10 @@ export class GeminiLiveVoice {
       // Ignore close errors.
     }
 
-    if (this.captureContext) {
-      await this.captureContext.close();
-      this.captureContext = null;
+    for (const src of this.activeSources) {
+      try { src.stop(); } catch { /* already stopped */ }
     }
-
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
-      this.mediaStream = null;
-    }
+    this.activeSources.clear();
 
     if (this.playbackContext) {
       await this.playbackContext.close();
