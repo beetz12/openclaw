@@ -25,10 +25,19 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vites
 const FIXTURE_DIR = join(import.meta.dirname!, ".test-fixtures", "e2e-pipeline");
 const VWP_DIR = join(FIXTURE_DIR, ".openclaw", "vwp");
 
-vi.mock("node:os", () => ({
-  homedir: () => FIXTURE_DIR,
-  tmpdir: () => join(FIXTURE_DIR, "tmp"),
-}));
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      homedir: () => FIXTURE_DIR,
+      tmpdir: () => join(FIXTURE_DIR, "tmp"),
+    },
+    homedir: () => FIXTURE_DIR,
+    tmpdir: () => join(FIXTURE_DIR, "tmp"),
+  };
+});
 
 // Track all CLI calls for assertions.
 const cliCalls: Array<{ argv: string[]; prompt: string }> = [];
@@ -155,6 +164,7 @@ const { matchSkills } = await import("./skill-matcher.ts");
 const { assembleTeam } = await import("./team-assembler.ts");
 const { launchTeam } = await import("./team-launcher.ts");
 const { loadBusinessContext } = await import("./context-loader.ts");
+const { loadWorkforceAgents, pickBestAgent } = await import("./assignment-engine.ts");
 const checkpoint = await import("./checkpoint.ts");
 const boardState = await import("./board-state.ts");
 
@@ -257,6 +267,29 @@ describe("VWP Dispatch — Full Pipeline E2E", () => {
 
     const decomposition = await analyzeTask(task.text);
     await checkpoint.saveDecomposition(task.id, decomposition);
+
+    // Mirror executeTeam assignment routing behavior (manual-lock respected).
+    const taskData = await checkpoint.getTaskStatus(task.id);
+    const agents = await loadWorkforceAgents();
+    const requiredSkills = Array.from(new Set(decomposition.subtasks.map((s) => s.domain)));
+    const assignmentDecision = pickBestAgent(agents, {
+      roleHint: taskData.assignment.assignedRole ?? undefined,
+      requiredSkills,
+      manualLock: taskData.assignment.assignmentMode === "manual-lock",
+      existing: taskData.assignment,
+    });
+    await checkpoint.saveAssignmentProfile(task.id, {
+      assignedAgentId: assignmentDecision.assignedAgentId,
+      assignedRole: assignmentDecision.assignedRole,
+      requiredSkills: assignmentDecision.requiredSkills,
+      assignmentMode: assignmentDecision.assignmentMode,
+      assignmentReason: assignmentDecision.assignmentReason,
+      executorAgentId: assignmentDecision.assignedAgentId,
+      executionProfile: {
+        scoreBreakdown: assignmentDecision.scoreBreakdown,
+        selectedAt: Date.now(),
+      },
+    });
 
     const matches = matchSkills(decomposition.subtasks, registry);
     const context = await loadBusinessContext("lead");
@@ -397,6 +430,16 @@ describe("VWP Dispatch — Full Pipeline E2E", () => {
     // Save decomposition so the confirm step will find it.
     await checkpoint.saveDecomposition(taskId, decomposition);
 
+    // Apply manual-lock assignment prior to execution.
+    const assignRes = await httpRequest("POST", `/vwp/dispatch/tasks/${taskId}/assign`, {
+      agentId: "eng-1",
+      role: "Engineering",
+      requiredSkills: ["typescript"],
+      mode: "manual-lock",
+      reason: "Integration test manual lock",
+    });
+    expect(assignRes.status).toBe(200);
+
     // Move task to the board "todo" column.
     await boardState.moveTask(taskId, "todo");
   });
@@ -518,6 +561,12 @@ describe("VWP Dispatch — Full Pipeline E2E", () => {
     expect(body.final.status).toBe("completed");
     expect(body.final.subtasks.length).toBeGreaterThanOrEqual(1);
     expect(body.final.synthesizedResult).toBeTruthy();
+
+    // Manual-lock assignment is preserved through executeTeam routing.
+    expect((body as any).assignment).toBeDefined();
+    expect((body as any).assignment.assignedAgentId).toBe("eng-1");
+    expect((body as any).assignment.assignmentMode).toBe("manual-lock");
+    expect((body as any).assignment.executorAgentId).toBe("eng-1");
 
     // Subtask results files exist.
     expect(body.subtaskResults.length).toBeGreaterThanOrEqual(1);

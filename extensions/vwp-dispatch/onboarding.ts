@@ -145,6 +145,18 @@ export function createOnboardingHttpHandler(
     // DELETE /vwp/onboarding — reset onboarding
     if (req.method === "DELETE" && pathname === "/vwp/onboarding") {
       store.reset();
+
+      // Persist an explicit "not completed" marker after reset.
+      // This avoids ambiguous null-state reads and gives callers a
+      // deterministic post-delete status contract.
+      store.saveOnboarding({
+        completed: false,
+        completedAt: 0,
+        businessType: "custom",
+        businessName: "",
+        userName: "",
+      });
+
       jsonResponse(res, 200, { reset: true });
       return true;
     }

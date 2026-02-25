@@ -58,6 +58,7 @@ export function buildAnalysisInvocation(
         "--output-format",
         "json",
         "--dangerously-skip-permissions",
+        "--skip-git-repo-check",
       ];
       if (model) args.push("--model", model);
       if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
@@ -66,7 +67,15 @@ export function buildAnalysisInvocation(
 
     case "codex-cli": {
       const fullPrompt = systemPrompt ? `${systemPrompt}\n\n---\n\n${prompt}` : prompt;
-      const args = ["codex", "exec", fullPrompt, "--json", "-s", "danger-full-access"];
+      const args = [
+        "codex",
+        "exec",
+        fullPrompt,
+        "--json",
+        "-s",
+        "danger-full-access",
+        "--skip-git-repo-check",
+      ];
       if (model) args.push("-m", model);
       return args;
     }
@@ -98,6 +107,7 @@ export function buildAgentInvocation(provider: string, options: AgentInvocationO
         "-p",
         prompt,
         "--dangerously-skip-permissions",
+        "--skip-git-repo-check",
         "--output-format",
         "json",
       ];
@@ -106,7 +116,15 @@ export function buildAgentInvocation(provider: string, options: AgentInvocationO
     }
 
     case "codex-cli": {
-      const args = ["codex", "exec", prompt, "--json", "-s", "danger-full-access"];
+      const args = [
+        "codex",
+        "exec",
+        prompt,
+        "--json",
+        "-s",
+        "danger-full-access",
+        "--skip-git-repo-check",
+      ];
       if (model) args.push("-m", model);
       return args;
     }

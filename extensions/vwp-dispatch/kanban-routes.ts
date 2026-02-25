@@ -5,10 +5,12 @@
  * jsonResponse helper.
  */
 
+import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { getSharedSSE } from "../vwp-approval/sse.js";
 import type { AgentStateManager } from "./agent-state.js";
 import * as boardState from "./board-state.js";
 import * as checkpoint from "./checkpoint.js";
@@ -44,6 +46,39 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 
 function isValidColumn(value: unknown): value is KanbanColumnId {
   return typeof value === "string" && (KANBAN_COLUMNS as readonly string[]).includes(value);
+}
+
+function isHighImpactActivity(action: string, detail: string): boolean {
+  const text = `${action} ${detail}`.toLowerCase();
+  return (
+    text.includes("blocked") ||
+    text.includes("failed") ||
+    text.includes("error") ||
+    text.includes("critical")
+  );
+}
+
+async function notifyTelegramHighImpact(
+  taskId: string,
+  action: string,
+  detail: string,
+): Promise<void> {
+  const token = process.env.OPENCLAW_VWP_TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.OPENCLAW_VWP_TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+
+  const text = `⚠️ High-impact activity\nTask: ${taskId}\nAction: ${action}\nDetail: ${detail}`;
+  const endpoint = `https://api.telegram.org/bot${token}/sendMessage`;
+
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+  } catch {
+    // Best-effort notification only
+  }
 }
 
 export type KanbanRoutesDeps = {
@@ -202,6 +237,61 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
       return true;
     }
 
+    // POST /vwp/dispatch/tasks/:id/activity
+    const activityPostMatch =
+      req.method === "POST" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/activity$/);
+    if (activityPostMatch) {
+      if (!checkAuth(req, res)) return true;
+      const taskId = activityPostMatch[1];
+
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw) as {
+          type?: ActivityEntry["type"];
+          action?: string;
+          detail?: string;
+          agentName?: string;
+        };
+        if (!body.type || !body.action || !body.detail) {
+          jsonResponse(res, 400, { error: "type, action, detail are required" });
+          return true;
+        }
+
+        const entry: ActivityEntry = {
+          id: crypto.randomUUID(),
+          taskId,
+          timestamp: Date.now(),
+          type: body.type,
+          action: body.action,
+          detail: body.detail,
+          agentName: body.agentName,
+        };
+
+        await checkpoint.saveActivity(taskId, entry);
+
+        if (isHighImpactActivity(body.action, body.detail)) {
+          void notifyTelegramHighImpact(taskId, body.action, body.detail);
+        }
+
+        onSSE?.({
+          type: "agent_action",
+          taskId,
+          agentName: body.agentName ?? "orchestrator",
+          action: body.action,
+          detail: body.detail,
+        });
+        jsonResponse(res, 201, { entry });
+        return true;
+      } catch (err) {
+        if (err instanceof Error && err.message === "body_too_large") {
+          jsonResponse(res, 413, { error: "Request body too large" });
+          return true;
+        }
+        jsonResponse(res, 400, { error: "Invalid JSON body" });
+        return true;
+      }
+    }
+
     // GET /vwp/dispatch/tasks/:id/activity
     const activityMatch =
       req.method === "GET" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/activity$/);
@@ -223,6 +313,142 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
       return true;
     }
 
+    // POST /vwp/dispatch/tasks/:id/deliverables
+    const deliverablePostMatch =
+      req.method === "POST" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/deliverables$/);
+    if (deliverablePostMatch) {
+      if (!checkAuth(req, res)) return true;
+      const taskId = deliverablePostMatch[1];
+
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw) as {
+          type?: "file" | "url" | "artifact";
+          title?: string;
+          path?: string;
+          description?: string;
+        };
+        if (!body.type || !body.title) {
+          jsonResponse(res, 400, { error: "type and title are required" });
+          return true;
+        }
+        const entry = {
+          id: crypto.randomUUID(),
+          taskId,
+          timestamp: Date.now(),
+          type: body.type,
+          title: body.title,
+          path: body.path,
+          description: body.description,
+        };
+        await checkpoint.saveDeliverable(taskId, entry);
+        jsonResponse(res, 201, { entry });
+        return true;
+      } catch (err) {
+        if (err instanceof Error && err.message === "body_too_large") {
+          jsonResponse(res, 413, { error: "Request body too large" });
+          return true;
+        }
+        jsonResponse(res, 400, { error: "Invalid JSON body" });
+        return true;
+      }
+    }
+
+    // GET /vwp/dispatch/tasks/:id/deliverables
+    const deliverableGetMatch =
+      req.method === "GET" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/deliverables$/);
+    if (deliverableGetMatch) {
+      if (!checkAuth(req, res)) return true;
+      const taskId = deliverableGetMatch[1];
+      const entries = await checkpoint.getDeliverables(taskId);
+      jsonResponse(res, 200, { entries });
+      return true;
+    }
+
+    // POST /vwp/dispatch/tasks/:id/subagent
+    const subagentPostMatch =
+      req.method === "POST" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/subagent$/);
+    if (subagentPostMatch) {
+      if (!checkAuth(req, res)) return true;
+      const taskId = subagentPostMatch[1];
+
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw) as {
+          sessionId?: string;
+          agentName?: string;
+          status?: "active" | "completed" | "failed";
+          note?: string;
+        };
+        if (!body.sessionId || !body.agentName) {
+          jsonResponse(res, 400, { error: "sessionId and agentName are required" });
+          return true;
+        }
+        const entry = {
+          id: crypto.randomUUID(),
+          taskId,
+          timestamp: Date.now(),
+          sessionId: body.sessionId,
+          agentName: body.agentName,
+          status: body.status ?? "active",
+          note: body.note,
+        };
+        await checkpoint.saveSubagent(taskId, entry);
+        jsonResponse(res, 201, { entry });
+        return true;
+      } catch (err) {
+        if (err instanceof Error && err.message === "body_too_large") {
+          jsonResponse(res, 413, { error: "Request body too large" });
+          return true;
+        }
+        jsonResponse(res, 400, { error: "Invalid JSON body" });
+        return true;
+      }
+    }
+
+    // GET /vwp/dispatch/tasks/:id/subagent
+    const subagentGetMatch =
+      req.method === "GET" && pathname.match(/^\/vwp\/dispatch\/tasks\/([^/]+)\/subagent$/);
+    if (subagentGetMatch) {
+      if (!checkAuth(req, res)) return true;
+      const taskId = subagentGetMatch[1];
+      const entries = await checkpoint.getSubagents(taskId);
+      jsonResponse(res, 200, { entries });
+      return true;
+    }
+
+    // GET /vwp/events (SSE stream)
+    if (req.method === "GET" && pathname === "/vwp/events") {
+      if (!checkAuth(req, res)) return true;
+      const sse = getSharedSSE();
+      const added = sse.addConnection(res, req);
+      if (!added) {
+        jsonResponse(res, 429, { error: "Too many SSE connections" });
+      }
+      return true;
+    }
+
+    // GET /vwp/dispatch/activity?limit=200
+    if (req.method === "GET" && pathname === "/vwp/dispatch/activity") {
+      if (!checkAuth(req, res)) return true;
+
+      const limitParam = Number(url.searchParams.get("limit") ?? "200");
+      const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(1000, limitParam)) : 200;
+
+      const taskIds = await checkpoint.listTasks();
+      const grouped = await Promise.all(
+        taskIds.map(async (taskId) => ({ taskId, entries: await checkpoint.getActivity(taskId) })),
+      );
+
+      const entries = grouped
+        .flatMap(({ taskId, entries }) => entries.map((entry) => ({ ...entry, taskId })))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
+
+      jsonResponse(res, 200, { entries });
+      return true;
+    }
+
     // GET /vwp/dispatch/board
     if (req.method === "GET" && pathname === "/vwp/dispatch/board") {
       if (!checkAuth(req, res)) return true;
@@ -238,17 +464,48 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
       // Enrich with task data
       const taskData: Record<
         string,
-        { id: string; text: string | null; status: string; subtaskCount: number }
+        {
+          id: string;
+          text: string | null;
+          status: string;
+          subtaskCount: number;
+          assignment: {
+            assignedAgentId: string | null;
+            assignedRole: string | null;
+            assignmentMode: "auto" | "manual-lock";
+          };
+        }
       > = {};
       await Promise.all(
         [...allTaskIds].map(async (id) => {
           const status = await checkpoint.getTaskStatus(id);
           const decomposition = status.decomposition;
+
+          let derivedStatus = status.final?.status ?? (decomposition ? "confirming" : "queued");
+          const currentColumn = (Object.entries(board.columns).find(([, ids]) =>
+            ids.includes(id),
+          )?.[0] ?? "todo") as KanbanColumnId;
+          if (
+            (currentColumn === "backlog" || currentColumn === "todo") &&
+            derivedStatus === "failed"
+          ) {
+            derivedStatus = decomposition ? "confirming" : "queued";
+          }
+          if (currentColumn === "done" && derivedStatus === "failed") {
+            derivedStatus = "completed";
+          }
+
           taskData[id] = {
             id,
             text: status.request?.text ?? null,
-            status: status.final?.status ?? (decomposition ? "confirming" : "queued"),
+            priority: status.request?.priority ?? "medium",
+            status: derivedStatus,
             subtaskCount: decomposition?.subtasks?.length ?? 0,
+            assignment: {
+              assignedAgentId: status.assignment.assignedAgentId,
+              assignedRole: status.assignment.assignedRole,
+              assignmentMode: status.assignment.assignmentMode,
+            },
           };
         }),
       );
@@ -256,11 +513,29 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
       // Build enriched columns
       const columns: Record<
         string,
-        Array<{ id: string; text: string | null; status: string; subtaskCount: number }>
+        Array<{
+          id: string;
+          text: string | null;
+          priority: "low" | "medium" | "high" | "urgent";
+          status: string;
+          subtaskCount: number;
+          assignment: {
+            assignedAgentId: string | null;
+            assignedRole: string | null;
+            assignmentMode: "auto" | "manual-lock";
+          };
+        }>
       > = {};
       for (const col of KANBAN_COLUMNS) {
         columns[col] = board.columns[col].map(
-          (id) => taskData[id] ?? { id, text: null, status: "unknown", subtaskCount: 0 },
+          (id) =>
+            taskData[id] ?? {
+              id,
+              text: null,
+              status: "unknown",
+              subtaskCount: 0,
+              assignment: { assignedAgentId: null, assignedRole: null, assignmentMode: "auto" },
+            },
         );
       }
 
