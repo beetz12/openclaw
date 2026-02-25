@@ -46,7 +46,7 @@ cleanup() {
   exit 0
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup SIGINT SIGTERM
 
 # Parse args
 SKIP_CHANNELS=1
@@ -99,64 +99,83 @@ GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 # 1. Start OpenClaw Gateway
 echo -e "${GREEN}[1/2] Starting OpenClaw Gateway (port $GATEWAY_PORT)...${NC}"
 
-if [[ "$SKIP_CHANNELS" == "1" ]]; then
-  echo -e "       Mode: ${YELLOW}web-only${NC} (channels skipped)"
-  OPENCLAW_SKIP_CHANNELS=1 node "$ROOT_DIR/scripts/run-node.mjs" --dev gateway \
-    > "$LOG_DIR/gateway.log" 2>&1 &
+if curl -s -o /dev/null "http://localhost:$GATEWAY_PORT/"; then
+  echo -e "       ${YELLOW}Gateway already running${NC} on port $GATEWAY_PORT (reusing existing process)"
 else
-  echo -e "       Mode: ${GREEN}full${NC} (channels enabled)"
-  node "$ROOT_DIR/scripts/run-node.mjs" --dev gateway \
-    > "$LOG_DIR/gateway.log" 2>&1 &
+  if [[ "$SKIP_CHANNELS" == "1" ]]; then
+    echo -e "       Mode: ${YELLOW}web-only${NC} (channels skipped)"
+    OPENCLAW_SKIP_CHANNELS=1 node "$ROOT_DIR/scripts/run-node.mjs" --dev gateway \
+      > "$LOG_DIR/gateway.log" 2>&1 &
+  else
+    echo -e "       Mode: ${GREEN}full${NC} (channels enabled)"
+    node "$ROOT_DIR/scripts/run-node.mjs" --dev gateway \
+      > "$LOG_DIR/gateway.log" 2>&1 &
+  fi
+
+  GATEWAY_PID=$!
+  echo "$GATEWAY_PID" >> "$PIDS_FILE"
+  echo -e "       PID: $GATEWAY_PID | Log: .vwp-logs/gateway.log"
+
+  # Wait for gateway to be ready
+  echo -n "       Waiting for gateway"
+  for i in $(seq 1 30); do
+    if curl -s -o /dev/null http://localhost:$GATEWAY_PORT/; then
+      echo -e " ${GREEN}ready${NC}"
+      break
+    fi
+    # Also check if process died
+    if ! kill -0 "$GATEWAY_PID" 2>/dev/null; then
+      echo -e " ${RED}failed${NC}"
+      echo -e "${RED}Gateway failed to start. Check .vwp-logs/gateway.log${NC}"
+      exit 1
+    fi
+    echo -n "."
+    sleep 1
+  done
 fi
-
-GATEWAY_PID=$!
-echo "$GATEWAY_PID" >> "$PIDS_FILE"
-echo -e "       PID: $GATEWAY_PID | Log: .vwp-logs/gateway.log"
-
-# Wait for gateway to be ready
-echo -n "       Waiting for gateway"
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:$GATEWAY_PORT/health >/dev/null 2>&1; then
-    echo -e " ${GREEN}ready${NC}"
-    break
-  fi
-  # Also check if process died
-  if ! kill -0 "$GATEWAY_PID" 2>/dev/null; then
-    echo -e " ${RED}failed${NC}"
-    echo -e "${RED}Gateway failed to start. Check .vwp-logs/gateway.log${NC}"
-    exit 1
-  fi
-  echo -n "."
-  sleep 1
-done
 
 # 2. Start VWP Board (Mission Control)
 echo -e "${GREEN}[2/2] Starting VWP Board / Mission Control (port 3000)...${NC}"
 
-cd "$ROOT_DIR/apps/vwp-board"
-npx next dev --port 3000 \
-  > "$LOG_DIR/board.log" 2>&1 &
+if curl -sf http://localhost:3000 >/dev/null 2>&1; then
+  echo -e "       ${YELLOW}Board already running${NC} on port 3000 (reusing existing process)"
+else
+  cd "$ROOT_DIR/apps/vwp-board"
 
-BOARD_PID=$!
-echo "$BOARD_PID" >> "$PIDS_FILE"
-echo -e "       PID: $BOARD_PID | Log: .vwp-logs/board.log"
-cd "$ROOT_DIR"
+  # Use production server for stability (avoids dev overlay/runtime manifest issues).
+  if [[ ! -d ".next" ]]; then
+    echo -e "       Building vwp-board for production start..."
+    pnpm build > "$LOG_DIR/board.log" 2>&1 || {
+      echo -e " ${RED}failed${NC}"
+      echo -e "${RED}Board build failed. Check .vwp-logs/board.log${NC}"
+      exit 1
+    }
+  fi
 
-# Wait for board to be ready
-echo -n "       Waiting for board"
-for i in $(seq 1 30); do
-  if curl -sf http://localhost:3000 >/dev/null 2>&1; then
-    echo -e " ${GREEN}ready${NC}"
-    break
-  fi
-  if ! kill -0 "$BOARD_PID" 2>/dev/null; then
-    echo -e " ${RED}failed${NC}"
-    echo -e "${RED}Board failed to start. Check .vwp-logs/board.log${NC}"
-    exit 1
-  fi
-  echo -n "."
-  sleep 1
-done
+  pnpm start --port 3000 \
+    > "$LOG_DIR/board.log" 2>&1 &
+
+  BOARD_PID=$!
+  echo "$BOARD_PID" >> "$PIDS_FILE"
+  echo -e "       PID: $BOARD_PID | Log: .vwp-logs/board.log"
+  cd "$ROOT_DIR"
+
+  # Wait for board to be ready
+  echo -n "       Waiting for board"
+  for i in $(seq 1 30); do
+    if curl -sf http://localhost:3000 >/dev/null 2>&1; then
+      echo -e " ${GREEN}ready${NC}"
+      break
+    fi
+    if ! kill -0 "$BOARD_PID" 2>/dev/null; then
+      echo -e " ${RED}failed${NC}"
+      echo -e "${RED}Board failed to start. Check .vwp-logs/board.log${NC}"
+      exit 1
+    fi
+    echo -n "."
+    sleep 1
+  done
+fi
 
 echo ""
 echo -e "${CYAN}========================================${NC}"

@@ -257,6 +257,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
+      '@google/genai':
+        specifier: ^1.41.0
+        version: 1.41.0
       '@vwp/theme':
         specifier: workspace:*
         version: link:../../packages/vwp-theme
@@ -275,6 +278,9 @@ importers:
       rehype-sanitize:
         specifier: ^6.0.0
         version: 6.0.0
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
       zustand:
         specifier: ^5.0.5
         version: 5.0.11(@types/react@19.2.14)(react@19.2.4)
@@ -10227,7 +10233,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.2.0
       '@types/keyv': 3.1.4
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
       '@types/responselike': 1.0.3
 
   '@types/caseless@0.12.5': {}
@@ -10286,7 +10292,7 @@ snapshots:
 
   '@types/fs-extra@9.0.13':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
 
   '@types/hast@3.0.4':
     dependencies:
@@ -10305,7 +10311,7 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
 
   '@types/linkify-it@5.0.0': {}
 
@@ -10348,7 +10354,7 @@ snapshots:
 
   '@types/plist@3.0.5':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
       xmlbuilder: 15.1.1
     optional: true
 
@@ -10379,7 +10385,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
 
   '@types/retry@0.12.0': {}
 
@@ -10422,7 +10428,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.2.3
     optional: true
 
   '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260217.1':
