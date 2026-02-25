@@ -106,6 +106,15 @@ Expected conflict files (resolve by keeping nexclaw values):
 - The auth choice list is in `src/commands/auth-choice-options.ts`; the OAuth implementation is in `src/commands/openai-codex-oauth.ts`.
 - After auth, configure model: `agents.defaults.model.primary: "openai-codex/gpt-5.3-codex"`
 
+### Gemini Live Voice Chat (VWP Board)
+
+- **Voice files**: `apps/vwp-board/src/lib/voice/geminiLiveVoice.ts` (core class), `apps/vwp-board/src/hooks/useGeminiVoiceCall.ts` (React hook)
+- **Architecture**: Dual-session (STT + TTS). STT connects on call start, TTS connects lazily on first `speak()`. If STT closes (common with native-audio models), the class stays alive for TTS while the hook falls back to browser `SpeechRecognition`.
+- **API key**: `NEXT_PUBLIC_GEMINI_API_KEY` in `apps/vwp-board/.env.local`. Without it, falls back to browser STT only (no TTS).
+- **sendClientContent vs sendRealtimeInput**: For text-to-speech, ALWAYS use `sendClientContent({ turns: [...], turnComplete: true })`. The SDK's `sendRealtimeInput` silently drops `parts` with text — it only handles `media`/`audio`/`video` blobs.
+- **Audio sample rates**: Mic capture at browser default, downsample to 16kHz for STT. Playback AudioContext must be set to 24kHz to match Gemini TTS output.
+- **STT session stability**: `gemini-2.5-flash-native-audio-preview-*` models may close the STT WebSocket immediately after connection. This is handled gracefully: mic capture is cleaned up via `stopMicCapture()`, the class status stays "live", and the hook starts browser STT fallback. Do NOT call `handleRuntimeError` for STT close — that tears down the whole class and blocks TTS.
+
 ## VWP (Virtual Workforce Platform)
 
 For full VWP setup, running, architecture, and troubleshooting, see [docs/VWP-README.md](docs/VWP-README.md).
