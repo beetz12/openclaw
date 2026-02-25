@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ActivityEntry {
   id: string;
@@ -15,6 +15,7 @@ interface ActivityEntry {
 interface AgentActivityFeedProps {
   entries: ActivityEntry[];
   maxHeight?: string;
+  taskMetaById?: Record<string, { text: string; priority: string }>;
 }
 
 const TYPE_COLORS: Record<ActivityEntry["type"], string> = {
@@ -22,6 +23,61 @@ const TYPE_COLORS: Record<ActivityEntry["type"], string> = {
   status_change: "var(--color-info)",
   subtask_update: "var(--color-success)",
   approval_gate: "var(--color-warning)",
+};
+
+const ACTION_BADGES: Partial<Record<string, { label: string; className: string }>> = {
+  task_created: {
+    label: "Task Queued",
+    className: "bg-blue-100 text-blue-700",
+  },
+  execution_routed: {
+    label: "Execution Routed",
+    className: "bg-indigo-100 text-indigo-700",
+  },
+  assignment_manual: {
+    label: "Manual Assignment",
+    className: "bg-amber-100 text-amber-700",
+  },
+  assignment_auto: {
+    label: "Auto Assignment",
+    className: "bg-emerald-100 text-emerald-700",
+  },
+  assignment_unlocked: {
+    label: "Assignment Unlocked",
+    className: "bg-slate-100 text-slate-700",
+  },
+  task_completed: {
+    label: "Completed",
+    className: "bg-emerald-100 text-emerald-700",
+  },
+  task_failed: {
+    label: "Failed",
+    className: "bg-rose-100 text-rose-700",
+  },
+  status_changed: {
+    label: "Status Update",
+    className: "bg-cyan-100 text-cyan-700",
+  },
+  team_launch: {
+    label: "Team Launch",
+    className: "bg-violet-100 text-violet-700",
+  },
+  ready_for_review: {
+    label: "Ready for Review",
+    className: "bg-lime-100 text-lime-700",
+  },
+  task_retried: {
+    label: "Retried",
+    className: "bg-orange-100 text-orange-700",
+  },
+  coordination: {
+    label: "Coordination",
+    className: "bg-fuchsia-100 text-fuchsia-700",
+  },
+  move: {
+    label: "Column Move",
+    className: "bg-sky-100 text-sky-700",
+  },
 };
 
 function formatTimeAgo(timestamp: number): string {
@@ -36,12 +92,45 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
+function humanizeAction(action: string): string {
+  return action
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function formatPriority(priority: string | undefined): string {
+  if (!priority) {return "MEDIUM";}
+  return priority.toUpperCase();
+}
+
+function formatActivityDetail(entry: ActivityEntry): string {
+  const raw = entry.detail?.trim() ?? "";
+
+  if (entry.action === "task_created") {
+    if (!raw || raw === "Task submitted to dispatch queue") {
+      return `Task queued · ${entry.taskId.slice(0, 8)}…`;
+    }
+  }
+
+  if (entry.action === "status_changed") {
+    return raw.replace(/\b(in_progress|ready_for_review)\b/g, (m) => m.replaceAll("_", " "));
+  }
+
+  if (entry.action === "agent_action" && raw.toLowerCase().includes("tool")) {
+    return raw.replace(/^tool\s+/i, "Tool: ");
+  }
+
+  return raw;
+}
+
 export function AgentActivityFeed({
   entries,
   maxHeight = "400px",
+  taskMetaById = {},
 }: AgentActivityFeedProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
 
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
@@ -88,25 +177,74 @@ export function AgentActivityFeed({
 
             {/* Content */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 {entry.agentName && (
                   <span className="text-sm font-semibold text-[var(--color-text)]">
                     {entry.agentName}
                   </span>
                 )}
-                <span className="text-sm text-[var(--color-text-secondary)]">
-                  {entry.action}
+                {ACTION_BADGES[entry.action] && (
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${ACTION_BADGES[entry.action]!.className}`}
+                    title={entry.action}
+                  >
+                    {ACTION_BADGES[entry.action]!.label}
+                  </span>
+                )}
+                <span className="text-sm text-[var(--color-text-secondary)]" title={entry.action}>
+                  {humanizeAction(entry.action)}
                 </span>
               </div>
-              <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
-                {entry.detail}
+              <p className="mt-0.5 text-sm text-[var(--color-text-muted)]" title={formatActivityDetail(entry)}>
+                {formatActivityDetail(entry)}
               </p>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--color-text-muted)] font-mono">
+                <span>task: {entry.taskId}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(entry.taskId);
+                      setCopiedTaskId(entry.taskId);
+                      setTimeout(() => setCopiedTaskId((v) => (v === entry.taskId ? null : v)), 1200);
+                    } catch {
+                      // no-op
+                    }
+                  }}
+                  className="rounded border border-[var(--color-border)] bg-white px-1.5 py-0.5 text-[10px] font-medium"
+                >
+                  {copiedTaskId === entry.taskId ? "Copied" : "Copy"}
+                </button>
+              </div>
+              {taskMetaById[entry.taskId]?.text && (
+                <p
+                  className="mt-1 text-xs text-[var(--color-text-muted)] line-clamp-2"
+                  title={`[${formatPriority(taskMetaById[entry.taskId].priority)}] ${taskMetaById[entry.taskId].text}`}
+                >
+                  [{formatPriority(taskMetaById[entry.taskId].priority)}] {taskMetaById[entry.taskId].text}
+                </p>
+              )}
             </div>
 
-            {/* Timestamp */}
-            <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
-              {formatTimeAgo(entry.timestamp)}
-            </span>
+            {/* Timestamp + link */}
+            <div className="shrink-0 flex flex-col items-end gap-1">
+              <span
+                className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+                title={entry.type}
+              >
+                {entry.type.replaceAll("_", " ")}
+              </span>
+              <span className="text-xs text-[var(--color-text-muted)]" title={new Date(entry.timestamp).toLocaleString()}>
+                {formatTimeAgo(entry.timestamp)}
+              </span>
+              <a
+                href={`/board/${entry.taskId}`}
+                className="text-[11px] font-medium text-[var(--color-primary)] hover:underline"
+                title={`Open task ${entry.taskId}`}
+              >
+                View details
+              </a>
+            </div>
           </div>
         ))}
       </div>

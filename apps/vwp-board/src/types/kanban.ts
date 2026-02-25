@@ -58,6 +58,11 @@ export type KanbanColumnId =
 export interface KanbanTask {
   id: string;
   text: string;
+  assignment?: {
+    assignedAgentId: string | null;
+    assignedRole: string | null;
+    assignmentMode: "auto" | "manual-lock";
+  };
   userId: string;
   createdAt: number;
   updatedAt: number;

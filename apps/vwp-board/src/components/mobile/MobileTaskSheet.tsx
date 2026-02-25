@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState } from "react";
-import type { KanbanTask } from "@/types/kanban";
+
 import { useTaskDetail } from "@/hooks/useTaskDetail";
 import { AgentActivityFeed } from "@/components/activity/AgentActivityFeed";
 import { TaskFailedBanner } from "@/components/error/TaskFailedBanner";
 import { TimeoutWarning } from "@/components/error/TimeoutWarning";
+import { splitTaskText } from "@/lib/task-text";
+import { kanbanApi } from "@/lib/api-client";
 
 interface MobileTaskSheetProps {
   taskId: string;
@@ -35,8 +37,11 @@ export function MobileTaskSheet({
   onRetry,
   onCancel,
 }: MobileTaskSheetProps) {
-  const { task, activity, loading } = useTaskDetail(taskId);
+  const { task, activity, loading, refresh } = useTaskDetail(taskId);
   const [visible, setVisible] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; role: string; skills: string[] }>>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [assignmentPending, setAssignmentPending] = useState<null | "assign" | "auto" | "unlock">(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
   const dragging = useRef(false);
@@ -51,6 +56,16 @@ export function MobileTaskSheet({
     setVisible(false);
     setTimeout(onClose, 200);
   }, [onClose]);
+
+  useEffect(() => {
+    let mounted = true;
+    kanbanApi.getTeam().then((res) => {
+      if (!mounted) {return;}
+      const members = (res.team?.members ?? []).filter((m) => m.active);
+      setTeamMembers(members.map((m) => ({ id: m.id, name: m.name, role: m.role, skills: m.skills })));
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -110,6 +125,7 @@ export function MobileTaskSheet({
   const runningSubtask = task?.subtasks.find(
     (s) => s.status === "running" && s.startedAt,
   );
+  const { title, description } = splitTaskText(task?.text ?? "");
 
   return (
     <>
@@ -162,8 +178,13 @@ export function MobileTaskSheet({
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg font-bold text-[var(--color-text)]">
-                    {task.text}
+                    {title}
                   </h2>
+                  {description && (
+                    <p className="mt-1 whitespace-pre-line text-sm text-[var(--color-text-muted)]">
+                      {description}
+                    </p>
+                  )}
                   <div className="mt-1 flex items-center gap-2">
                     <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
                       {STATUS_LABELS[task.status] ?? task.status}
@@ -195,8 +216,92 @@ export function MobileTaskSheet({
                 </button>
               </div>
 
+              {/* Assignment controls */}
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Assignment</p>
+                <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+                  <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
+                    Agent: {task.assignment?.assignedRole || "Unassigned"}
+                  </span>
+                  <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
+                    Mode: {task.assignment?.assignmentMode || "auto"}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <select
+                    value={selectedAgentId}
+                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                    disabled={assignmentPending !== null}
+                    className="w-full rounded border border-[var(--color-border)] px-2 py-2 text-xs disabled:opacity-60"
+                  >
+                    <option value="">Select workforce agent…</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                    ))}
+                  </select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={assignmentPending !== null || !selectedAgentId}
+                      onClick={async () => {
+                        if (!selectedAgentId) {return;}
+                        setAssignmentPending("assign");
+                        try {
+                          const member = teamMembers.find((m) => m.id === selectedAgentId);
+                          await kanbanApi.assignTask(task.id, {
+                            agentId: selectedAgentId,
+                            role: member?.role,
+                            requiredSkills: member?.skills ?? [],
+                            mode: "manual-lock",
+                            reason: "Assigned from mobile task sheet",
+                          });
+                          refresh();
+                        } finally {
+                          setAssignmentPending(null);
+                        }
+                      }}
+                      className="rounded bg-[var(--color-primary)] px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                    >
+                      {assignmentPending === "assign" ? "Assigning…" : "Assign + Lock"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={assignmentPending !== null}
+                      onClick={async () => {
+                        setAssignmentPending("auto");
+                        try {
+                          await kanbanApi.autoAssignTask(task.id);
+                          refresh();
+                        } finally {
+                          setAssignmentPending(null);
+                        }
+                      }}
+                      className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium disabled:opacity-60"
+                    >
+                      {assignmentPending === "auto" ? "Auto-assigning…" : "Auto-assign"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={assignmentPending !== null}
+                      onClick={async () => {
+                        setAssignmentPending("unlock");
+                        try {
+                          await kanbanApi.unlockTaskAssignment(task.id);
+                          refresh();
+                        } finally {
+                          setAssignmentPending(null);
+                        }
+                      }}
+                      className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium disabled:opacity-60"
+                    >
+                      {assignmentPending === "unlock" ? "Unlocking…" : "Unlock"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Failed banner */}
-              {task.status === "failed" && (
+              {task.status === "failed" && (task.column === "in_progress" || task.column === "review") && (
                 <TaskFailedBanner
                   errorMessage={task.error}
                   onRetry={() => onRetry(task.id)}

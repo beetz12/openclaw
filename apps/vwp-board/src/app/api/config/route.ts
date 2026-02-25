@@ -7,8 +7,10 @@ import { NextResponse } from "next/server";
  */
 export function GET() {
   const token = process.env.OPENCLAW_GATEWAY_TOKEN ?? "";
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL ?? "http://127.0.0.1:19001";
   return NextResponse.json({
     gatewayToken: token,
+    gatewayUrl,
     hasToken: token.length > 0,
   });
 }

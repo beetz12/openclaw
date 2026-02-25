@@ -19,7 +19,9 @@ export function ConnectionIndicator({
 
   const gwStatus = gatewayConnected
     ? { color: "bg-emerald-500", label: "Gateway" }
-    : { color: "bg-slate-300", label: "Gateway offline" };
+    : sseConnected
+      ? { color: "bg-emerald-500", label: "Gateway (SSE)" }
+      : { color: "bg-slate-300", label: "Gateway offline" };
 
   return (
     <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">

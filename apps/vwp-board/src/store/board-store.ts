@@ -63,6 +63,7 @@ export interface BoardStore {
   columns: Record<KanbanColumnId, KanbanTask[]>;
   loading: boolean;
   error: string | null;
+  hasLoaded: boolean;
   sseConnected: boolean;
   sseStale: boolean;
 
@@ -131,6 +132,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   columns: EMPTY_COLUMNS,
   loading: false,
   error: null,
+  hasLoaded: false,
   sseConnected: false,
   sseStale: false,
   agents: [],
@@ -150,16 +152,23 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   fetchBoard: async () => {
-    set({ loading: true, error: null });
+    const initialLoad = !get().hasLoaded;
+    if (initialLoad) {
+      set({ loading: true, error: null });
+    }
     try {
       const board: BoardState = await kanbanApi.getBoard();
-      set({ columns: board.columns, loading: false });
+      set({ columns: board.columns, loading: false, error: null, hasLoaded: true });
     } catch (err) {
       const msg =
         err && typeof err === "object" && "error" in err
           ? (err as { error: string }).error
           : "Failed to load board";
-      set({ error: msg, loading: false });
+      if (initialLoad) {
+        set({ error: msg, loading: false });
+      } else {
+        set({ loading: false });
+      }
     }
   },
 
@@ -215,14 +224,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   submitGoal: async (text) => {
     const result = await kanbanApi.submitGoal(text);
     // After submitting, refresh the board to pick up the new task
-    get().fetchBoard();
+    void get().fetchBoard();
     return result.id;
   },
 
   confirmTask: async (taskId) => {
     await kanbanApi.confirmExecution(taskId);
     // Refresh to get updated status
-    get().fetchBoard();
+    void get().fetchBoard();
   },
 
   setSseConnected: (connected) => {
@@ -243,7 +252,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         const found = findTask(columns, event.taskId);
         if (!found) {
           // Task not on board yet -- refresh
-          get().fetchBoard();
+          void get().fetchBoard();
           return;
         }
         if (found.column === event.to) {return;} // Already there
@@ -351,49 +360,49 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         set({ gatewayConnected: event.connected });
         break;
       case "tool_run_started": {
-        const run = (event as any).run;
+        const ev = event as unknown as { run: (typeof state.toolRuns)[0] };
         set((state) => ({
-          toolRuns: [...state.toolRuns.filter((r) => r.runId !== run.runId), run],
+          toolRuns: [...state.toolRuns.filter((r) => r.runId !== ev.run.runId), ev.run],
         }));
         break;
       }
       case "tool_run_output": {
-        const { runId, chunk } = event as any;
+        const ev = event as unknown as { runId: string; chunk: string };
         set((state) => ({
           toolOutputs: {
             ...state.toolOutputs,
-            [runId]: (state.toolOutputs[runId] ?? "") + chunk,
+            [ev.runId]: (state.toolOutputs[ev.runId] ?? "") + ev.chunk,
           },
         }));
         break;
       }
       case "tool_run_completed": {
-        const { runId, exitCode, durationMs } = event as any;
+        const ev = event as unknown as { runId: string; exitCode: number };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === runId
-              ? { ...r, status: "completed" as const, exitCode, completedAt: Date.now() }
+            r.runId === ev.runId
+              ? { ...r, status: "completed" as const, exitCode: ev.exitCode, completedAt: Date.now() }
               : r,
           ),
         }));
         break;
       }
       case "tool_run_failed": {
-        const { runId, error } = event as any;
+        const ev = event as unknown as { runId: string; error: string };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === runId
-              ? { ...r, status: "failed" as const, error, completedAt: Date.now() }
+            r.runId === ev.runId
+              ? { ...r, status: "failed" as const, error: ev.error, completedAt: Date.now() }
               : r,
           ),
         }));
         break;
       }
       case "tool_run_cancelled": {
-        const { runId } = event as any;
+        const ev = event as unknown as { runId: string };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === runId
+            r.runId === ev.runId
               ? { ...r, status: "cancelled" as const, completedAt: Date.now() }
               : r,
           ),
