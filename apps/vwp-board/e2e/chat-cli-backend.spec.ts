@@ -34,7 +34,7 @@ test.describe("Chat CLI backend status", () => {
 
   test("Chat page loads with input visible", async ({ page }) => {
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
   });
 
   test("Chat status API returns CLI backend type", async ({ request }) => {

@@ -2,44 +2,62 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Error Recovery", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/board");
-    await page.evaluate(() => {
-      localStorage.setItem("vwp-board-onboarding-complete", "true");
+    // Keep onboarding guard satisfied
+    await page.route("**/vwp/onboarding", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ completed: true }),
+        });
+      }
+      return route.continue();
     });
+
+    // Deterministic backend failure for board/cost data endpoints
+    await page.route("**/vwp/dispatch/**", (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "dispatch unavailable" }),
+      }),
+    );
+    await page.route("**/vwp/cost/**", (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "dispatch unavailable" }),
+      }),
+    );
+
+    await page.goto("/board");
   });
 
-  test("board page shows error state with HTTP 404 text when API unavailable", async ({
-    page,
-  }) => {
+  test("board page shows error state when API is unavailable", async ({ page }) => {
     await page.goto("/board");
-    await expect(page.getByText("HTTP 404")).toBeVisible();
+    await expect(page.getByText("dispatch unavailable")).toBeVisible();
   });
 
-  test("error state has Retry button", async ({ page }) => {
+  test("board error state has Retry button", async ({ page }) => {
     await page.goto("/board");
-    await expect(page.getByText("HTTP 404")).toBeVisible();
+    await expect(page.getByText("dispatch unavailable")).toBeVisible();
     await expect(page.getByRole("button", { name: /Retry/i })).toBeVisible();
   });
 
-  test("cost page shows error state when API unavailable", async ({
-    page,
-  }) => {
+  test("cost page shows error state when API is unavailable", async ({ page }) => {
     await page.goto("/cost");
-    await expect(page.getByText(/error|HTTP|failed/i)).toBeVisible();
+    await expect(page.getByText("dispatch unavailable")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Retry/i })).toBeVisible();
   });
 
-  test("retry button triggers a new fetch attempt", async ({ page }) => {
+  test("retry button keeps error state when backend is still unavailable", async ({ page }) => {
     await page.goto("/board");
-    await expect(page.getByRole("button", { name: /Retry/i })).toBeVisible();
+    const retryButton = page.getByRole("button", { name: /Retry/i });
+    await expect(retryButton).toBeVisible();
 
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes("/api/") || resp.url().includes("/board"),
-      { timeout: 5000 }
-    ).catch(() => null);
+    await retryButton.click();
 
-    await page.getByRole("button", { name: /Retry/i }).click();
-
-    // Verify the retry button is still present (API still unavailable)
-    await expect(page.getByRole("button", { name: /Retry/i })).toBeVisible();
+    await expect(page.getByText("dispatch unavailable")).toBeVisible();
+    await expect(retryButton).toBeVisible();
   });
 });

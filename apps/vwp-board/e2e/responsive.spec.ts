@@ -16,9 +16,9 @@ test.describe("Responsive layouts", () => {
     const sidebar = page.locator("aside");
     await expect(sidebar).toBeHidden();
 
-    // Tab bar should be visible at bottom
-    const tabBar = page.locator("nav").filter({ has: page.getByText("Board") });
-    await expect(tabBar.first()).toBeVisible();
+    // Mobile tab bar should be visible with core tabs
+    await expect(page.getByRole("link", { name: "Board" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Tools" })).toBeVisible();
   });
 
   test("Desktop viewport (1920px) shows desktop layout", async ({ page }) => {
