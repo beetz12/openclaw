@@ -49,6 +49,7 @@ describe("buildAnalysisInvocation", () => {
     expect(result).toContain("--json");
     expect(result).toContain("-s");
     expect(result).toContain("danger-full-access");
+    expect(result).toContain("--skip-git-repo-check");
     expect(result.some((a) => a.includes("You are a task decomposer"))).toBe(true);
   });
 
@@ -87,6 +88,7 @@ describe("buildAgentInvocation", () => {
     expect(result[1]).toBe("exec");
     expect(result).toContain("--json");
     expect(result).toContain("-s");
+    expect(result).toContain("--skip-git-repo-check");
   });
 
   it("builds gemini agent args", () => {

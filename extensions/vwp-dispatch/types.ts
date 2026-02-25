@@ -3,8 +3,19 @@
 export interface TaskRequest {
   id: string;
   text: string;
+  priority?: "low" | "medium" | "high" | "urgent";
   userId?: string;
   createdAt: number;
+}
+
+export interface TaskAssignmentProfile {
+  assignedAgentId: string | null;
+  assignedRole: string | null;
+  requiredSkills: string[];
+  assignmentMode: "auto" | "manual-lock";
+  assignmentReason: string | null;
+  executorAgentId: string | null;
+  executionProfile: Record<string, unknown> | null;
 }
 
 export type TaskStatus =
