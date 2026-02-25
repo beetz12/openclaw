@@ -12,6 +12,7 @@ export function NetworkError({ connected, onRetry }: NetworkErrorProps) {
   const [countdown, setCountdown] = useState(0);
   const retryAttempt = useRef(0);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasConnectedOnce = useRef(false);
 
   const clearCountdown = useCallback(() => {
     if (countdownTimer.current) {
@@ -40,16 +41,27 @@ export function NetworkError({ connected, onRetry }: NetworkErrorProps) {
 
   useEffect(() => {
     if (connected) {
+      hasConnectedOnce.current = true;
       setVisible(false);
       retryAttempt.current = 0;
       clearCountdown();
-    } else {
-      setVisible(true);
-      // Exponential backoff: 5s, 10s, 20s, 30s max
-      const delay = Math.min(5 * Math.pow(2, retryAttempt.current), 30);
-      retryAttempt.current += 1;
-      startCountdown(delay);
+      return;
     }
+
+    // Don't show a "Connection lost" warning before we've ever connected.
+    // This avoids false-error UX on first load when SSE is still initializing
+    // (or intentionally unavailable).
+    if (!hasConnectedOnce.current) {
+      setVisible(false);
+      clearCountdown();
+      return;
+    }
+
+    setVisible(true);
+    // Exponential backoff: 5s, 10s, 20s, 30s max
+    const delay = Math.min(5 * Math.pow(2, retryAttempt.current), 30);
+    retryAttempt.current += 1;
+    startCountdown(delay);
   }, [connected, clearCountdown, startCountdown]);
 
   useEffect(() => {

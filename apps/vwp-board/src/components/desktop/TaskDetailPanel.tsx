@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useTaskDetail } from "@/hooks/useTaskDetail";
 import { AgentActivityFeed } from "@/components/activity/AgentActivityFeed";
 import { ApprovalQueue } from "@/components/approval/ApprovalQueue";
 import { TaskFailedBanner } from "@/components/error/TaskFailedBanner";
 import { TimeoutWarning } from "@/components/error/TimeoutWarning";
+import { kanbanApi } from "@/lib/api-client";
+import { splitTaskText } from "@/lib/task-text";
 
 interface TaskDetailPanelProps {
   taskId: string | null;
@@ -42,7 +44,31 @@ function PanelContent({
   onRetry: (taskId: string) => void;
   onCancel: (taskId: string) => void;
 }) {
-  const { task, activity, loading, error } = useTaskDetail(taskId);
+  const { task, activity, loading, error, refresh } = useTaskDetail(taskId);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; role: string; skills: string[] }>>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [assignmentExplain, setAssignmentExplain] = useState<null | {
+    assignedAgentId: string | null;
+    assignedRole: string | null;
+    assignmentMode: "auto" | "manual-lock";
+    assignmentReason: string | null;
+    scoreBreakdown: Array<{ agentId: string; score: number; reasons: string[] }>;
+  }>(null);
+
+  useEffect(() => {
+    setAssignmentExplain(null);
+  }, [taskId]);
+
+  useEffect(() => {
+    let mounted = true;
+    kanbanApi.getTeam().then((res) => {
+      if (!mounted) {return;}
+      const members = (res.team?.members ?? []).filter((m) => m.active);
+      setTeamMembers(members.map((m) => ({ id: m.id, name: m.name, role: m.role, skills: m.skills })));
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -83,6 +109,7 @@ function PanelContent({
   const completedSubtasks = task.subtasks.filter(
     (s) => s.status === "completed",
   ).length;
+  const { title, description } = splitTaskText(task.text);
   const runningSubtask = task.subtasks.find(
     (s) => s.status === "running" && s.startedAt,
   );
@@ -93,8 +120,13 @@ function PanelContent({
       <div className="flex items-start justify-between border-b border-[var(--color-border)] px-4 py-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-bold text-[var(--color-text)] leading-snug">
-            {task.text}
+            {title}
           </h3>
+          {description && (
+            <p className="mt-1 whitespace-pre-line text-sm text-[var(--color-text-muted)]">
+              {description}
+            </p>
+          )}
           <div className="mt-1 flex items-center gap-2">
             <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
               {STATUS_LABELS[task.status] ?? task.status}
@@ -130,8 +162,101 @@ function PanelContent({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-4 p-4">
+          {/* Assignment Controls */}
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">Assignment</p>
+            <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+              <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
+                Agent: {task.assignment?.assignedRole || "Unassigned"}
+              </span>
+              <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
+                Mode: {task.assignment?.assignmentMode || "auto"}
+              </span>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <select
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
+                className="min-w-[220px] rounded border border-[var(--color-border)] px-2 py-1.5 text-xs"
+              >
+                <option value="">Select workforce agent…</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!selectedAgentId) {return;}
+                  const member = teamMembers.find((m) => m.id === selectedAgentId);
+                  await kanbanApi.assignTask(task.id, {
+                    agentId: selectedAgentId,
+                    role: member?.role,
+                    requiredSkills: member?.skills ?? [],
+                    mode: "manual-lock",
+                    reason: "Assigned from task detail panel",
+                  });
+                  refresh();
+                }}
+                className="rounded bg-[var(--color-primary)] px-2.5 py-1.5 text-xs font-medium text-white"
+              >
+                Assign + Lock
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await kanbanApi.autoAssignTask(task.id); refresh(); }}
+                className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium"
+              >
+                Auto-assign
+              </button>
+              <button
+                type="button"
+                onClick={async () => { await kanbanApi.unlockTaskAssignment(task.id); refresh(); }}
+                className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium"
+              >
+                Unlock
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setExplainLoading(true);
+                  try {
+                    const data = await kanbanApi.getTaskAssignmentExplain(task.id);
+                    setAssignmentExplain(data.explain);
+                  } finally {
+                    setExplainLoading(false);
+                  }
+                }}
+                className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium"
+              >
+                {explainLoading ? "Loading…" : "Explain"}
+              </button>
+            </div>
+            {assignmentExplain && (
+              <div className="mt-3 rounded border border-[var(--color-border)] bg-slate-50 p-2.5 text-xs">
+                <p className="font-semibold text-slate-700">
+                  Decision: {assignmentExplain.assignedRole || "Unassigned"}
+                  {assignmentExplain.assignedAgentId ? ` (${assignmentExplain.assignedAgentId})` : ""}
+                </p>
+                {assignmentExplain.assignmentReason && (
+                  <p className="mt-1 text-slate-600">Reason: {assignmentExplain.assignmentReason}</p>
+                )}
+                {assignmentExplain.scoreBreakdown?.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {assignmentExplain.scoreBreakdown.slice(0, 5).map((row) => (
+                      <li key={row.agentId} className="rounded bg-white px-2 py-1">
+                        <span className="font-medium">{row.agentId}</span>: {row.score.toFixed(2)}
+                        {row.reasons?.length ? ` — ${row.reasons.join(", ")}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Failed banner */}
-          {task.status === "failed" && (
+          {task.status === "failed" && (task.column === "in_progress" || task.column === "review") && (
             <TaskFailedBanner
               errorMessage={task.error}
               onRetry={() => onRetry(task.id)}

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import type { KanbanTask } from "@/types/kanban";
+import { splitTaskText } from "@/lib/task-text";
 
 interface SwipeableTaskCardProps {
   task: KanbanTask;
@@ -114,6 +115,7 @@ export function SwipeableTaskCard({
 
   const priority = PRIORITY_STYLES[task.priority];
   const statusColor = STATUS_COLORS[task.status] ?? "bg-slate-400";
+  const { title } = splitTaskText(task.text);
   const completedSubtasks = task.subtasks.filter(
     (s) => s.status === "completed",
   ).length;
@@ -176,17 +178,23 @@ export function SwipeableTaskCard({
             className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusColor}`}
           />
           <p className="text-sm font-medium text-[var(--color-text)] line-clamp-2 leading-snug">
-            {task.text}
+            {title}
           </p>
         </div>
 
         {/* Tags */}
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
           <span
             className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${priority.bg} ${priority.text}`}
           >
             {priority.label}
           </span>
+          {task.assignment?.assignedRole && (
+            <span className="inline-flex items-center rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+              {task.assignment.assignedRole}
+              {task.assignment.assignmentMode === "manual-lock" ? " 🔒" : ""}
+            </span>
+          )}
           {task.subtasks.length > 0 && (
             <span className="text-xs text-[var(--color-text-muted)]">
               {completedSubtasks}/{task.subtasks.length} subtasks

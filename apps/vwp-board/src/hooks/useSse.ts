@@ -47,18 +47,14 @@ export function useSse(): void {
       try {
         const res = await fetch("/api/config", { cache: "no-store" });
         if (!res.ok) {return;}
-        const cfg = (await res.json()) as { gatewayToken?: string; hasToken?: boolean };
+        const cfg = (await res.json()) as { gatewayToken?: string; gatewayUrl?: string; hasToken?: boolean };
         if (cfg?.hasToken && cfg.gatewayToken && typeof window !== "undefined") {
-          const existing = localStorage.getItem("vwp-dashboard-token");
-          if (!existing) {
-            localStorage.setItem("vwp-dashboard-token", cfg.gatewayToken);
-          }
+          // Always sync latest token from server-side env to avoid stale localStorage creds.
+          localStorage.setItem("vwp-dashboard-token", cfg.gatewayToken);
         }
         if (typeof window !== "undefined") {
-          const existingBase = localStorage.getItem("vwp-dashboard-base-url");
-          if (!existingBase) {
-            localStorage.setItem("vwp-dashboard-base-url", window.location.origin);
-          }
+          const gatewayBase = (cfg.gatewayUrl && cfg.gatewayUrl.trim()) || "http://127.0.0.1:19001";
+          localStorage.setItem("vwp-dashboard-base-url", gatewayBase);
         }
       } catch {
         // Best-effort bootstrap only.
@@ -85,8 +81,9 @@ export function useSse(): void {
       api.getChatStatus().then(({ connected }) => {
         setGatewayConnected(connected);
       }).catch(() => {
-        // If we can't reach the status endpoint, assume disconnected
-        setGatewayConnected(false);
+        // Some gateway profiles may not expose chat status; if SSE is connected,
+        // treat gateway as reachable to avoid false "Gateway offline" banners.
+        setGatewayConnected(true);
       });
     });
 

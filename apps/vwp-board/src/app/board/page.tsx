@@ -28,6 +28,10 @@ function useIsMobile(breakpoint = 768) {
 }
 
 function BoardContent() {
+  const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
+  const [submitting, setSubmitting] = useState(false);
+
   const {
     columns,
     loading,
@@ -59,10 +63,10 @@ function BoardContent() {
 
   const handleRetry = useCallback(
     async (taskId: string) => {
-      // Re-confirm a failed task to resubmit it
-      await confirmTask(taskId);
+      await kanbanApi.retryTask(taskId);
+      void refresh();
     },
-    [confirmTask],
+    [refresh],
   );
 
   const handleCancel = useCallback(
@@ -72,6 +76,20 @@ function BoardContent() {
     },
     [refresh],
   );
+
+  const handleQuickAdd = useCallback(async () => {
+    const text = newTaskText.trim();
+    if (!text) {return;}
+    setSubmitting(true);
+    try {
+      await kanbanApi.submitGoal(text, newTaskPriority);
+      setNewTaskText("");
+      setNewTaskPriority("medium");
+      await refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }, [newTaskPriority, newTaskText, refresh]);
 
   if (loading) {
     return (
@@ -106,13 +124,41 @@ function BoardContent() {
       <NetworkError connected={sseConnected} onRetry={refresh} />
 
       {/* Status bar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2">
-        <h2 className="text-lg font-bold text-[var(--color-text)]">Board</h2>
-        <ConnectionIndicator
-          sseConnected={sseConnected}
-          sseStale={sseStale}
-          gatewayConnected={gatewayConnected}
-        />
+      <div className="border-b border-[var(--color-border)] px-4 py-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[var(--color-text)]">Board</h2>
+          <ConnectionIndicator
+            sseConnected={sseConnected}
+            sseStale={sseStale}
+            gatewayConnected={gatewayConnected}
+          />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            value={newTaskText}
+            onChange={(e) => setNewTaskText(e.target.value)}
+            placeholder="Quick add task to To Do..."
+            className="min-w-[260px] flex-1 rounded border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+          />
+          <select
+            value={newTaskPriority}
+            onChange={(e) => setNewTaskPriority(e.target.value as "low" | "medium" | "high" | "urgent")}
+            className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+          <button
+            type="button"
+            disabled={submitting || !newTaskText.trim()}
+            onClick={() => void handleQuickAdd()}
+            className="rounded bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {submitting ? "Adding..." : "Add"}
+          </button>
+        </div>
       </div>
 
       {/* Board: mobile or desktop */}

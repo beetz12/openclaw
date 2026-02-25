@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTaskDetail } from "@/hooks/useTaskDetail";
 import { kanbanApi } from "@/lib/api-client";
@@ -68,6 +68,39 @@ function SubtaskList({
       ))}
     </ul>
   );
+}
+
+function summarizeExecutionError(errorText: string): string[] {
+  const text = errorText.toLowerCase();
+  const out: string[] = [];
+  if (text.includes("failed to stat skills entry") || text.includes("no such file or directory")) {
+    out.push("Broken skill symlink(s) detected in local skills directories.");
+  }
+  if (text.includes("failed to load skill") && text.includes("invalid yaml")) {
+    out.push("One or more skills have invalid YAML frontmatter.");
+  }
+  if (text.includes("missing field `description`") || text.includes("missing yaml frontmatter")) {
+    out.push("One or more skills are malformed (missing required metadata/frontmatter).");
+  }
+  if (text.includes("model is not supported") || (text.includes("sonnet") && text.includes("codex"))) {
+    out.push("Model/runtime mismatch (unsupported model selected for Codex runtime).");
+  }
+  return out;
+}
+
+function recommendedFixes(errorText: string): string[] {
+  const text = errorText.toLowerCase();
+  const out: string[] = [];
+  if (text.includes("failed to stat skills entry") || text.includes("no such file or directory")) {
+    out.push("Remove broken symlinks under ~/.agents/skills and ~/.codex/skills.");
+  }
+  if (text.includes("invalid yaml") || text.includes("missing yaml frontmatter") || text.includes("missing field `description`")) {
+    out.push("Fix malformed SKILL.md frontmatter (name/description and valid YAML delimiters). ");
+  }
+  if (text.includes("model is not supported") || (text.includes("sonnet") && text.includes("codex"))) {
+    out.push("Use a Codex-supported model in vwp-dispatch config (e.g., gpt-5.3-codex). ");
+  }
+  return out;
 }
 
 function ActivityFeed({
@@ -160,6 +193,7 @@ export default function TaskDetailPage({
 }) {
   const { taskId } = use(params);
   const router = useRouter();
+  const [showRawError, setShowRawError] = useState(false);
   const { task, activity, loading, error, refresh } = useTaskDetail(taskId);
 
   if (loading) {
@@ -263,6 +297,55 @@ export default function TaskDetailPage({
         costEstimate={task.costEstimate}
         actualCost={task.actualCost}
       />
+
+      {/* Result / Error */}
+      {(task.result || task.error || task.status === "completed" || task.status === "failed") && (
+        <section>
+          <h3 className="text-base font-semibold text-[var(--color-text)] mb-3">
+            Final Output
+          </h3>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            {task.result ? (
+              <pre className="whitespace-pre-wrap text-sm text-[var(--color-text-secondary)]">{task.result}</pre>
+            ) : task.error ? (
+              <div className="space-y-3">
+                {summarizeExecutionError(task.error).length > 0 && (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Likely causes</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-amber-800">
+                      {summarizeExecutionError(task.error).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {recommendedFixes(task.error).length > 0 && (
+                  <div className="rounded border border-sky-200 bg-sky-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Recommended fixes</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-sky-800">
+                      {recommendedFixes(task.error).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowRawError((v) => !v)}
+                  className="rounded border border-[var(--color-border)] bg-white px-2 py-1 text-xs font-medium"
+                >
+                  {showRawError ? "Hide raw log" : "Show raw log"}
+                </button>
+                {showRawError && (
+                  <pre className="whitespace-pre-wrap text-sm text-[var(--color-danger)]">{task.error}</pre>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-muted)]">No final output was captured for this older task run.</p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Subtasks */}
       <section>
