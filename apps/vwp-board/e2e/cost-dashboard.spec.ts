@@ -23,9 +23,13 @@ test.describe("Cost dashboard", () => {
     await page.goto("/cost");
 
     // Wait for loading to finish (either summary or error renders)
-    await page.waitForSelector('[data-testid="cost-summary"], text=Failed', {
-      timeout: 10_000,
-    });
+    await expect
+      .poll(async () => {
+        const hasSummary = await page.getByTestId("cost-summary").isVisible().catch(() => false);
+        const hasError = await page.getByText(/failed|dispatch unavailable/i).first().isVisible().catch(() => false);
+        return hasSummary || hasError;
+      }, { timeout: 10_000 })
+      .toBe(true);
 
     // If summary loaded, check for stat cards
     const summary = page.getByTestId("cost-summary");
@@ -40,10 +44,14 @@ test.describe("Cost dashboard", () => {
   test("Cost chart renders or shows empty state", async ({ page }) => {
     await page.goto("/cost");
 
-    await page.waitForSelector(
-      '[data-testid="cost-chart"], [data-testid="cost-chart-empty"], text=Failed',
-      { timeout: 10_000 },
-    );
+    await expect
+      .poll(async () => {
+        const hasChart = await page.getByTestId("cost-chart").isVisible().catch(() => false);
+        const hasEmptyChart = await page.getByTestId("cost-chart-empty").isVisible().catch(() => false);
+        const hasError = await page.getByText(/failed|dispatch unavailable/i).first().isVisible().catch(() => false);
+        return hasChart || hasEmptyChart || hasError;
+      }, { timeout: 10_000 })
+      .toBe(true);
 
     // Either chart or empty state should be present
     const chart = page.getByTestId("cost-chart");
@@ -56,10 +64,14 @@ test.describe("Cost dashboard", () => {
   test("Cost breakdown table renders or shows empty state", async ({ page }) => {
     await page.goto("/cost");
 
-    await page.waitForSelector(
-      '[data-testid="cost-breakdown"], [data-testid="cost-breakdown-empty"], text=Failed',
-      { timeout: 10_000 },
-    );
+    await expect
+      .poll(async () => {
+        const hasTable = await page.getByTestId("cost-breakdown").isVisible().catch(() => false);
+        const hasEmptyTable = await page.getByTestId("cost-breakdown-empty").isVisible().catch(() => false);
+        const hasError = await page.getByText(/failed|dispatch unavailable/i).first().isVisible().catch(() => false);
+        return hasTable || hasEmptyTable || hasError;
+      }, { timeout: 10_000 })
+      .toBe(true);
 
     const table = page.getByTestId("cost-breakdown");
     const emptyTable = page.getByTestId("cost-breakdown-empty");

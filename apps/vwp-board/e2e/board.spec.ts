@@ -14,14 +14,14 @@ test.describe("Board page", () => {
     await page.goto("/board");
 
     // Wait for the board heading
-    await expect(page.getByText("Board")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Board" })).toBeVisible();
 
     // Verify all 5 column labels are present
-    await expect(page.getByText("Backlog")).toBeVisible();
-    await expect(page.getByText("To Do")).toBeVisible();
-    await expect(page.getByText("In Progress")).toBeVisible();
-    await expect(page.getByText("Review")).toBeVisible();
-    await expect(page.getByText("Done")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Backlog/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /To Do/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /In Progress/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Review/i }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Done/i }).first()).toBeVisible();
   });
 
   test("Empty board shows 'No tasks' in each column", async ({ page }) => {
@@ -43,11 +43,11 @@ test.describe("Board page", () => {
     // Desktop
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/board");
-    await expect(page.getByText("Board")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Board" })).toBeVisible();
 
     // Mobile - should show grouped list instead of columns
     await page.setViewportSize({ width: 375, height: 812 });
     await page.waitForTimeout(300); // Allow layout to reflow
-    await expect(page.getByText("Board")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Board" })).toBeVisible();
   });
 });

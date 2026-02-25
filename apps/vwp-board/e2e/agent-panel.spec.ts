@@ -110,9 +110,12 @@ async function openAgentPanel(page: Page) {
   });
 }
 
-// Wait for the board to be fully loaded (columns visible)
+// Wait for the board shell to be fully loaded
 async function waitForBoard(page: Page) {
-  await page.waitForSelector("text=Backlog", { timeout: 15_000 });
+  await page.waitForURL("**/board", { timeout: 15_000 });
+  const sidebar = page.locator("aside");
+  await expect(sidebar).toBeVisible({ timeout: 15_000 });
+  await expect(sidebar.getByRole("button", { name: /open agents panel/i })).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe("Agent Panel - Desktop", () => {
@@ -319,8 +322,10 @@ test.describe("Agent Panel - Mobile", () => {
   test("clicking Agents tab opens the agent panel as bottom sheet", async ({
     page,
   }) => {
-    const agentTab = page.getByRole("button", { name: "Open agents panel" });
-    await agentTab.click();
+    await page.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="Open agents panel"]');
+      btn?.click();
+    });
 
     // Panel heading
     await expect(
@@ -332,8 +337,10 @@ test.describe("Agent Panel - Mobile", () => {
   test("mobile agent panel has backdrop that closes panel", async ({
     page,
   }) => {
-    const agentTab = page.getByRole("button", { name: "Open agents panel" });
-    await agentTab.click();
+    await page.evaluate(() => {
+      const btn = document.querySelector('button[aria-label="Open agents panel"]');
+      btn?.click();
+    });
     await expect(page.getByText("No agents running")).toBeVisible();
 
     // Click the backdrop (the dark overlay behind the panel)

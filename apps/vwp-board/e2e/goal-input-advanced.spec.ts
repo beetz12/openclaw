@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+async function _fillGoalInput(page: import("@playwright/test").Page, value: string) {
+  const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
+  await expect(textarea).toBeVisible({ timeout: 10000 });
+  await textarea.fill(value);
+}
+
 test.describe("Goal Input Advanced", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/board");
@@ -10,63 +16,45 @@ test.describe("Goal Input Advanced", () => {
   });
 
   test("character counter shows remaining characters", async ({ page }) => {
-    const textarea = page.getByRole("textbox");
+    const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
     await expect(textarea).toBeVisible();
 
-    // Type some text and verify counter updates
     await textarea.fill("Test goal");
-    await expect(page.getByText(/\d+/)).toBeVisible();
+    await expect(page.getByText(/remaining$/)).toBeVisible();
   });
 
-  test("all 3 example chips are clickable and fill the textarea", async ({
-    page,
-  }) => {
-    const textarea = page.getByRole("textbox");
+  test("example chips are clickable and fill the textarea", async ({ page }) => {
+    const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
 
-    // Find example chips/buttons (excluding navigation and submit buttons)
-    const chips = page.locator("[data-testid*='chip'], [data-testid*='example'], button:not([type='submit'])").filter({
-      hasNot: page.getByRole("link"),
+    const firstChip = page.getByRole("button", {
+      name: /Run a Valentine’s Day sale|Run a Valentine's Day sale/i,
     });
-
-    // Click the first example chip
-    const firstChip = page.getByRole("button").filter({ hasNotText: /submit|send|next|back|retry/i }).first();
     await firstChip.click();
 
-    // Verify textarea is populated
     const textareaValue = await textarea.inputValue();
     expect(textareaValue.length).toBeGreaterThan(0);
   });
 
-  test("clearing textarea after chip click re-disables submit button", async ({
-    page,
-  }) => {
-    const textarea = page.getByRole("textbox");
+  test("clearing textarea re-disables analyze button", async ({ page }) => {
+    const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
+    const submitButton = page.getByRole("button", { name: /Analyze & Plan/i });
 
-    // Fill textarea to enable submit
     await textarea.fill("A test goal for my business");
-    const submitButton = page.getByRole("button", { name: /submit|send|create/i });
+    await expect(submitButton).toBeEnabled();
 
-    // Clear the textarea
     await textarea.fill("");
-
-    // Submit button should be disabled when textarea is empty
     await expect(submitButton).toBeDisabled();
   });
 
-  test("goal input label has 'Describe your goal' accessible name", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByText(/Describe your goal/i)
-    ).toBeVisible();
+  test("goal input label has 'Describe your goal' accessible name", async ({ page }) => {
+    await expect(page.getByText(/Describe your goal/i)).toBeVisible();
   });
 
   test("textarea has proper placeholder text", async ({ page }) => {
-    const textarea = page.getByRole("textbox");
+    const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
     await expect(textarea).toBeVisible();
 
     const placeholder = await textarea.getAttribute("placeholder");
-    expect(placeholder).toBeTruthy();
-    expect(placeholder!.length).toBeGreaterThan(0);
+    expect(placeholder).toBe("What would you like to accomplish?");
   });
 });
