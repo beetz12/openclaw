@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useBoardStore } from "@/store/board-store";
-import { useSse } from "./useSse";
 
 /**
  * Main board hook. Fetches the board on mount, connects SSE,
@@ -19,12 +18,9 @@ export function useBoard() {
   const submitGoal = useBoardStore((s) => s.submitGoal);
   const confirmTask = useBoardStore((s) => s.confirmTask);
 
-  // Start SSE connection
-  useSse();
-
   // Fetch board data on mount
   useEffect(() => {
-    fetchBoard();
+    void fetchBoard();
   }, [fetchBoard]);
 
   return {

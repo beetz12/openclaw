@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KanbanTask } from "@/types/kanban";
 import { useBoardStore } from "@/store/board-store";
+import { splitTaskText } from "@/lib/task-text";
 
 export interface TaskCardProps {
   task: KanbanTask;
@@ -92,6 +93,7 @@ export function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps) {
 
   const priority = PRIORITY_STYLES[task.priority];
   const statusColor = STATUS_COLORS[task.status] ?? "bg-slate-400";
+  const { title } = splitTaskText(task.text);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -136,7 +138,7 @@ export function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps) {
           title={task.status}
         />
         <p className="text-sm font-medium text-[var(--color-text)] line-clamp-2 leading-snug">
-          {task.text}
+          {title}
         </p>
       </div>
 
@@ -150,6 +152,12 @@ export function TaskCard({ task, onClick, isDragOverlay }: TaskCardProps) {
         {task.domain && (
           <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
             {task.domain}
+          </span>
+        )}
+        {task.assignment?.assignedRole && (
+          <span className="inline-flex items-center rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+            {task.assignment.assignedRole}
+            {task.assignment.assignmentMode === "manual-lock" ? " 🔒" : ""}
           </span>
         )}
       </div>

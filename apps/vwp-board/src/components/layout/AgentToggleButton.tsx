@@ -1,8 +1,11 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useBoardStore } from "@/store/board-store";
 
 export function AgentToggleButton() {
+  const router = useRouter();
+  const pathname = usePathname();
   const agentCount = useBoardStore((s) => s.agents.length);
   const setOpen = useBoardStore((s) => s.setAgentPanelOpen);
   const open = useBoardStore((s) => s.agentPanelOpen);
@@ -10,7 +13,13 @@ export function AgentToggleButton() {
   return (
     <button
       type="button"
-      onClick={() => setOpen(!open)}
+      onClick={() => {
+        if (pathname !== "/board") {
+          router.push("/board");
+          return;
+        }
+        setOpen(!open);
+      }}
       aria-label={open ? "Close agents panel" : "Open agents panel"}
       className="flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
     >

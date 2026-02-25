@@ -5,7 +5,7 @@ import { DesktopBadge } from "@/components/layout/DesktopBadge";
 import { MobileAgentTab } from "@/components/layout/MobileAgentTab";
 import { SseProvider } from "@/components/layout/SseProvider";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
-import { CommandPalette } from "@/components/search/CommandPalette";
+
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -119,6 +119,17 @@ function Sidebar() {
             <path d="M6 8h8M6 12h5" />
           </svg>
           Approvals
+        </a>
+        <a
+          href="/content"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 4h14v12H3z" />
+            <path d="M3 8h14" />
+            <path d="M8 8v8" />
+          </svg>
+          Content
         </a>
         <a
           href="/calendar"
@@ -241,6 +252,17 @@ function TabBar() {
           <path d="M6 8h8M6 12h5" />
         </svg>
         Approvals
+      </a>
+      <a
+        href="/content"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 4h14v12H3z" />
+          <path d="M3 8h14" />
+          <path d="M8 8v8" />
+        </svg>
+        Content
       </a>
       <a
         href="/calendar"
