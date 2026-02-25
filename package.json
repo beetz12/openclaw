@@ -288,6 +288,7 @@
     "mac:restart": "bash scripts/restart-mac.sh",
     "moltbot:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
     "nexclaw": "node scripts/run-node.mjs",
+    "nexclaw:global": "bash scripts/install-global-cli.sh",
     "nexclaw:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
     "plugins:sync": "node --import tsx scripts/sync-plugin-versions.ts",
     "prepack": "pnpm build && pnpm ui:build",
@@ -335,6 +336,7 @@
     "vwp:check": "node scripts/vwp-check.mjs",
     "vwp:desktop:build": "pnpm --filter vwp-desktop build",
     "vwp:desktop:dev": "pnpm --filter vwp-desktop dev",
+    "vwp:migrate": "node scripts/vwp-migrate-defaults.mjs",
     "vwp:start": "bash scripts/start-vwp.sh",
     "vwp:start:channels": "bash scripts/start-vwp.sh --channels",
     "vwp:stop": "bash scripts/stop-vwp.sh"

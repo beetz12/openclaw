@@ -68,6 +68,19 @@ check("Build output exists", () => {
   return "dist/entry.js found";
 });
 
+// 6. Global nexclaw command availability
+check("Global nexclaw available", () => {
+  try {
+    const path = execSync("command -v nexclaw", { stdio: "pipe" }).toString().trim();
+    if (!path) {
+      throw new Error("nexclaw not found on PATH");
+    }
+    return path;
+  } catch {
+    throw new Error("nexclaw not found on PATH (run: pnpm nexclaw:global)");
+  }
+});
+
 // Print results
 console.log("\n[nexclaw] Environment Check\n");
 for (const c of checks) {
