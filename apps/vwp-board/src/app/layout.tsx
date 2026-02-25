@@ -5,6 +5,7 @@ import { DesktopBadge } from "@/components/layout/DesktopBadge";
 import { MobileAgentTab } from "@/components/layout/MobileAgentTab";
 import { SseProvider } from "@/components/layout/SseProvider";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
+import { CommandPalette } from "@/components/search/CommandPalette";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -91,6 +92,67 @@ function Sidebar() {
           Cost
         </a>
         <a
+          href="/activity"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 10h3l2-4 4 8 2-4h3" />
+          </svg>
+          Activity
+        </a>
+        <a
+          href="/docs"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M5 3h7l3 3v11H5z" />
+            <path d="M12 3v3h3" />
+          </svg>
+          Docs
+        </a>
+        <a
+          href="/approvals"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 4h14v12H3z" />
+            <path d="M6 8h8M6 12h5" />
+          </svg>
+          Approvals
+        </a>
+        <a
+          href="/calendar"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="4" width="14" height="13" rx="2" />
+            <path d="M6 2v4M14 2v4M3 8h14" />
+          </svg>
+          Calendar
+        </a>
+        <a
+          href="/cron"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="10" cy="10" r="8" />
+            <path d="M10 6v4l3 3" />
+          </svg>
+          Cron Jobs
+        </a>
+        <a
+          href="/workforce"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="6" cy="7" r="2" />
+            <circle cx="14" cy="7" r="2" />
+            <path d="M2.5 15c.8-2 2.4-3 4.5-3s3.7 1 4.5 3" />
+            <path d="M8.5 15c.8-2 2.4-3 4.5-3s3.7 1 4.5 3" />
+          </svg>
+          Workforce
+        </a>
+        <a
           href="/settings"
           className="flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg-subtle)] transition-colors"
         >
@@ -152,14 +214,65 @@ function TabBar() {
         CoWork
       </a>
       <a
-        href="/settings"
+        href="/activity"
         className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="10" cy="10" r="3" />
-          <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.5 1.5M15 15l1.5 1.5M16.5 3.5l-1.5 1.5M5 15l-1.5 1.5" />
+          <path d="M3 10h3l2-4 4 8 2-4h3" />
         </svg>
-        Settings
+        Activity
+      </a>
+      <a
+        href="/docs"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M5 3h7l3 3v11H5z" />
+          <path d="M12 3v3h3" />
+        </svg>
+        Docs
+      </a>
+      <a
+        href="/approvals"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 4h14v12H3z" />
+          <path d="M6 8h8M6 12h5" />
+        </svg>
+        Approvals
+      </a>
+      <a
+        href="/calendar"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="4" width="14" height="13" rx="2" />
+          <path d="M6 2v4M14 2v4M3 8h14" />
+        </svg>
+        Calendar
+      </a>
+      <a
+        href="/cron"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="10" cy="10" r="8" />
+          <path d="M10 6v4l3 3" />
+        </svg>
+        Cron
+      </a>
+      <a
+        href="/workforce"
+        className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="6" cy="7" r="2" />
+          <circle cx="14" cy="7" r="2" />
+          <path d="M2.5 15c.8-2 2.4-3 4.5-3s3.7 1 4.5 3" />
+          <path d="M8.5 15c.8-2 2.4-3 4.5-3s3.7 1 4.5 3" />
+        </svg>
+        Workforce
       </a>
       <MobileAgentTab />
     </nav>
