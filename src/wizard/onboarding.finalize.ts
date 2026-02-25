@@ -1,5 +1,7 @@
+import { execFile as execFileCb } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../agents/workspace.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import {
@@ -23,6 +25,8 @@ import {
 } from "../commands/onboard-helpers.js";
 import type { OnboardOptions } from "../commands/onboard-types.js";
 import type { OpenClawConfig } from "../config/config.js";
+import { resolveGatewayLaunchAgentLabel } from "../daemon/constants.js";
+import { buildLaunchAgentPlist } from "../daemon/launchd-plist.js";
 import { resolveGatewayService } from "../daemon/service.js";
 import { isSystemdUserServiceAvailable } from "../daemon/systemd.js";
 import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
@@ -45,6 +49,89 @@ type FinalizeOnboardingOptions = {
   prompter: WizardPrompter;
   runtime: RuntimeEnv;
 };
+
+const execFile = promisify(execFileCb);
+
+function resolveVwpBoardDir(): string | null {
+  const fromCwd = path.resolve(process.cwd(), "apps", "vwp-board");
+  const fromArgv = process.argv[1]
+    ? path.resolve(path.dirname(process.argv[1]), "..", "apps", "vwp-board")
+    : null;
+  const candidates = [fromCwd, fromArgv].filter((v): v is string => Boolean(v));
+  return candidates[0] ?? null;
+}
+
+async function ensureVwpBoardLaunchAgent(params: {
+  env: Record<string, string | undefined>;
+  stdout: NodeJS.WriteStream;
+}): Promise<{ installed: boolean; skippedReason?: string; plistPath?: string; label?: string }> {
+  if (process.platform !== "darwin") {
+    return { installed: false, skippedReason: "non-macos" };
+  }
+
+  const boardDir = resolveVwpBoardDir();
+  if (!boardDir) {
+    return { installed: false, skippedReason: "board-not-found" };
+  }
+
+  const boardPackage = path.join(boardDir, "package.json");
+  const boardExists = await fs
+    .access(boardPackage)
+    .then(() => true)
+    .catch(() => false);
+  if (!boardExists) {
+    return { installed: false, skippedReason: "board-not-found" };
+  }
+
+  const home = params.env.HOME ?? process.env.HOME;
+  if (!home) {
+    return { installed: false, skippedReason: "missing-home" };
+  }
+  const uid = process.getuid?.();
+  if (typeof uid !== "number") {
+    return { installed: false, skippedReason: "missing-uid" };
+  }
+
+  const gatewayLabel = resolveGatewayLaunchAgentLabel(params.env.OPENCLAW_PROFILE);
+  const label = `${gatewayLabel}.vwp-board`;
+  const plistPath = path.join(home, "Library", "LaunchAgents", `${label}.plist`);
+  const stateDir = params.env.OPENCLAW_STATE_DIR ?? path.join(home, ".openclaw");
+  const logDir = path.join(stateDir, "logs");
+  await fs.mkdir(logDir, { recursive: true });
+  await fs.mkdir(path.dirname(plistPath), { recursive: true });
+
+  const plist = buildLaunchAgentPlist({
+    label,
+    programArguments: [
+      "/bin/bash",
+      "-lc",
+      `cd ${JSON.stringify(boardDir)} && if [ ! -d .next ]; then pnpm build; fi; exec pnpm start --port 3000`,
+    ],
+    stdoutPath: path.join(logDir, "vwp-board.log"),
+    stderrPath: path.join(logDir, "vwp-board.err.log"),
+    environment: {
+      HOME: home,
+      PATH: params.env.PATH ?? "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      OPENCLAW_PROFILE: params.env.OPENCLAW_PROFILE,
+      OPENCLAW_STATE_DIR: stateDir,
+      OPENCLAW_CONFIG_PATH: params.env.OPENCLAW_CONFIG_PATH,
+      OPENCLAW_GATEWAY_PORT: params.env.OPENCLAW_GATEWAY_PORT,
+      OPENCLAW_GATEWAY_TOKEN: params.env.OPENCLAW_GATEWAY_TOKEN,
+    },
+    comment: "OpenClaw Mission Control (vwp-board)",
+  });
+  await fs.writeFile(plistPath, plist, "utf8");
+
+  const domain = `gui/${uid}`;
+  await execFile("launchctl", ["bootout", domain, plistPath]).catch(() => undefined);
+  await execFile("launchctl", ["unload", plistPath]).catch(() => undefined);
+  await execFile("launchctl", ["enable", `${domain}/${label}`]).catch(() => undefined);
+  await execFile("launchctl", ["bootstrap", domain, plistPath]);
+  await execFile("launchctl", ["kickstart", "-k", `${domain}/${label}`]);
+
+  params.stdout.write(`Installed Mission Control LaunchAgent: ${plistPath}\n`);
+  return { installed: true, plistPath, label };
+}
 
 export async function finalizeOnboardingWizard(
   options: FinalizeOnboardingOptions,
@@ -211,6 +298,33 @@ export async function finalizeOnboardingWizard(
         await prompter.note(`Gateway service install failed: ${installError}`, "Gateway");
         await prompter.note(gatewayInstallErrorHint(), "Gateway");
       }
+    }
+  }
+
+  if (installDaemon) {
+    try {
+      const vwp = await ensureVwpBoardLaunchAgent({ env: process.env, stdout: process.stdout });
+      if (vwp.installed) {
+        await prompter.note(
+          [
+            "Mission Control startup installed.",
+            "It now auto-starts with your login/session alongside Gateway.",
+            vwp.plistPath ? `LaunchAgent: ${vwp.plistPath}` : undefined,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          "Mission Control",
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await prompter.note(
+        [
+          `Mission Control auto-start setup failed: ${message}`,
+          "Gateway service install succeeded; you can still run Mission Control manually via `pnpm vwp:start`.",
+        ].join("\n"),
+        "Mission Control",
+      );
     }
   }
 

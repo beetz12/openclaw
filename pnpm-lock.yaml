@@ -275,6 +275,9 @@ importers:
       rehype-sanitize:
         specifier: ^6.0.0
         version: 6.0.0
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
       zustand:
         specifier: ^5.0.5
         version: 5.0.11(@types/react@19.2.14)(react@19.2.4)
@@ -11847,7 +11850,7 @@ snapshots:
 
   '@types/fs-extra@9.0.13':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.3.5
 
   '@types/hast@3.0.4':
     dependencies:
@@ -11977,7 +11980,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.3.5
     optional: true
 
   '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260301.1':
