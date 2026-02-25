@@ -1,0 +1,23 @@
+{
+  "businessType": "consulting",
+  "businessName": "Test",
+  "members": [
+    {
+      "id": "mkt-1",
+      "name": "Marketing",
+      "role": "Marketing",
+      "skills": ["seo", "linkedin"],
+      "required": false,
+      "active": true
+    },
+    {
+      "id": "eng-1",
+      "name": "Engineering",
+      "role": "Engineering",
+      "skills": ["typescript"],
+      "required": false,
+      "active": true
+    }
+  ],
+  "updatedAt": 1771908278962
+}

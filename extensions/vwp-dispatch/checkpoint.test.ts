@@ -18,6 +18,8 @@ const {
   getAgentCheckpoints,
   saveTaskMetadata,
   getTaskMetadata,
+  getTaskStatus,
+  saveAssignmentProfile,
 } = await import("./checkpoint.ts");
 
 describe("checkpoint — extended functions", () => {
@@ -122,6 +124,49 @@ describe("checkpoint — extended functions", () => {
       expect(f0.n).toBe(0);
       expect(f1.n).toBe(1);
       expect(f2.n).toBe(2);
+    });
+  });
+
+  describe("assignment profile", () => {
+    it("creates default assignment profile on task creation", async () => {
+      await createTask("task-as1", { id: "task-as1", text: "test", createdAt: Date.now() });
+      const status = await getTaskStatus("task-as1");
+      expect(status.assignment).toEqual({
+        assignedAgentId: null,
+        assignedRole: null,
+        requiredSkills: [],
+        assignmentMode: "auto",
+        assignmentReason: null,
+        executorAgentId: null,
+        executionProfile: null,
+      });
+    });
+
+    it("merges partial assignment updates without dropping prior fields", async () => {
+      await createTask("task-as2", { id: "task-as2", text: "test", createdAt: Date.now() });
+
+      await saveAssignmentProfile("task-as2", {
+        assignedAgentId: "marketing-1",
+        assignedRole: "Marketing",
+        requiredSkills: ["copywriting", "linkedin"],
+        assignmentMode: "manual-lock",
+      });
+
+      await saveAssignmentProfile("task-as2", {
+        assignmentReason: "Best role/skill match",
+        executorAgentId: "marketing-1",
+      });
+
+      const status = await getTaskStatus("task-as2");
+      expect(status.assignment).toEqual({
+        assignedAgentId: "marketing-1",
+        assignedRole: "Marketing",
+        requiredSkills: ["copywriting", "linkedin"],
+        assignmentMode: "manual-lock",
+        assignmentReason: "Best role/skill match",
+        executorAgentId: "marketing-1",
+        executionProfile: null,
+      });
     });
   });
 

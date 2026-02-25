@@ -18,7 +18,13 @@ import { access, readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { atomicWriteFile } from "./atomic-write.js";
-import type { DispatchResult, SubtaskResult, TaskDecomposition, TaskRequest } from "./types.js";
+import type {
+  DispatchResult,
+  SubtaskResult,
+  TaskAssignmentProfile,
+  TaskDecomposition,
+  TaskRequest,
+} from "./types.js";
 
 const TASKS_DIR = join(homedir(), ".openclaw", "vwp", "tasks");
 
@@ -26,10 +32,26 @@ function taskDir(taskId: string): string {
   return join(TASKS_DIR, taskId);
 }
 
+function defaultAssignmentProfile(): TaskAssignmentProfile {
+  return {
+    assignedAgentId: null,
+    assignedRole: null,
+    requiredSkills: [],
+    assignmentMode: "auto",
+    assignmentReason: null,
+    executorAgentId: null,
+    executionProfile: null,
+  };
+}
+
 // -- write helpers ---------------------------------------------------------
 
 export async function createTask(taskId: string, request: TaskRequest): Promise<void> {
   await atomicWriteFile(join(taskDir(taskId), "request.json"), JSON.stringify(request, null, 2));
+  await atomicWriteFile(
+    join(taskDir(taskId), "assignment.json"),
+    JSON.stringify(defaultAssignmentProfile(), null, 2),
+  );
 }
 
 export async function saveDecomposition(taskId: string, data: TaskDecomposition): Promise<void> {
@@ -49,6 +71,23 @@ export async function saveFinal(taskId: string, result: DispatchResult): Promise
   await atomicWriteFile(join(taskDir(taskId), "final.json"), JSON.stringify(result, null, 2));
 }
 
+export async function saveAssignmentProfile(
+  taskId: string,
+  profile: Partial<TaskAssignmentProfile>,
+): Promise<void> {
+  const path = join(taskDir(taskId), "assignment.json");
+  const existing = (await readJson<TaskAssignmentProfile>(path)) ?? defaultAssignmentProfile();
+  const merged: TaskAssignmentProfile = {
+    ...existing,
+    ...profile,
+    requiredSkills: Array.isArray(profile.requiredSkills)
+      ? profile.requiredSkills
+      : existing.requiredSkills,
+    assignmentMode: profile.assignmentMode ?? existing.assignmentMode,
+  };
+  await atomicWriteFile(path, JSON.stringify(merged, null, 2));
+}
+
 // -- read helpers ----------------------------------------------------------
 
 async function readJson<T>(path: string): Promise<T | null> {
@@ -63,14 +102,16 @@ export async function getTaskStatus(taskId: string): Promise<{
   request: TaskRequest | null;
   decomposition: TaskDecomposition | null;
   final: DispatchResult | null;
+  assignment: TaskAssignmentProfile;
 }> {
   const dir = taskDir(taskId);
-  const [request, decomposition, final] = await Promise.all([
+  const [request, decomposition, final, assignment] = await Promise.all([
     readJson<TaskRequest>(join(dir, "request.json")),
     readJson<TaskDecomposition>(join(dir, "decomposition.json")),
     readJson<DispatchResult>(join(dir, "final.json")),
+    readJson<TaskAssignmentProfile>(join(dir, "assignment.json")),
   ]);
-  return { request, decomposition, final };
+  return { request, decomposition, final, assignment: assignment ?? defaultAssignmentProfile() };
 }
 
 export async function getTask(taskId: string): Promise<{
@@ -78,9 +119,10 @@ export async function getTask(taskId: string): Promise<{
   decomposition: TaskDecomposition | null;
   subtaskResults: SubtaskResult[];
   final: DispatchResult | null;
+  assignment: TaskAssignmentProfile;
 }> {
   const dir = taskDir(taskId);
-  const { request, decomposition, final } = await getTaskStatus(taskId);
+  const { request, decomposition, final, assignment } = await getTaskStatus(taskId);
 
   const subtaskResults: SubtaskResult[] = [];
   try {
@@ -96,7 +138,7 @@ export async function getTask(taskId: string): Promise<{
     // No results directory yet — that's fine.
   }
 
-  return { request, decomposition, subtaskResults, final };
+  return { request, decomposition, subtaskResults, final, assignment };
 }
 
 export async function listTasks(): Promise<string[]> {
@@ -110,6 +152,26 @@ export async function listTasks(): Promise<string[]> {
 // -- activity log -----------------------------------------------------------
 
 import type { ActivityEntry } from "./kanban-types.js";
+
+export interface DeliverableEntry {
+  id: string;
+  taskId: string;
+  timestamp: number;
+  type: "file" | "url" | "artifact";
+  title: string;
+  path?: string;
+  description?: string;
+}
+
+export interface SubagentEntry {
+  id: string;
+  taskId: string;
+  timestamp: number;
+  sessionId: string;
+  agentName: string;
+  status: "active" | "completed" | "failed";
+  note?: string;
+}
 
 /**
  * Append an activity entry to the task's activity log.
@@ -132,6 +194,36 @@ export async function saveActivity(taskId: string, entry: ActivityEntry): Promis
 export async function getActivity(taskId: string): Promise<ActivityEntry[]> {
   const path = join(taskDir(taskId), "activity.json");
   return (await readJson<ActivityEntry[]>(path)) ?? [];
+}
+
+// -- deliverables -----------------------------------------------------------
+
+export async function saveDeliverable(taskId: string, entry: DeliverableEntry): Promise<void> {
+  const path = join(taskDir(taskId), "deliverables.json");
+  const existing = await readJson<DeliverableEntry[]>(path);
+  const entries = existing ?? [];
+  entries.push(entry);
+  await atomicWriteFile(path, JSON.stringify(entries, null, 2));
+}
+
+export async function getDeliverables(taskId: string): Promise<DeliverableEntry[]> {
+  const path = join(taskDir(taskId), "deliverables.json");
+  return (await readJson<DeliverableEntry[]>(path)) ?? [];
+}
+
+// -- subagents --------------------------------------------------------------
+
+export async function saveSubagent(taskId: string, entry: SubagentEntry): Promise<void> {
+  const path = join(taskDir(taskId), "subagents.json");
+  const existing = await readJson<SubagentEntry[]>(path);
+  const entries = existing ?? [];
+  entries.push(entry);
+  await atomicWriteFile(path, JSON.stringify(entries, null, 2));
+}
+
+export async function getSubagents(taskId: string): Promise<SubagentEntry[]> {
+  const path = join(taskDir(taskId), "subagents.json");
+  return (await readJson<SubagentEntry[]>(path)) ?? [];
 }
 
 // -- agent checkpoints ------------------------------------------------------

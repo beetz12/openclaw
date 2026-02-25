@@ -12,7 +12,7 @@ export type ApprovalEvent =
   | { type: "task_action_rejected"; id: string }
   | KanbanSSEEvent;
 
-const MAX_SSE_CONNECTIONS = 5;
+const MAX_SSE_CONNECTIONS = 50;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export class EventBuffer {
