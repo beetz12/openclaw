@@ -16,7 +16,7 @@ test.describe("Chat interface", () => {
   test("Chat page loads as home route", async ({ page }) => {
     await expect(page).toHaveURL("/");
     // Chat input should be visible (may be disabled if gateway not connected)
-    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
   });
 
   test("Empty state shows placeholder message", async ({ page }) => {
@@ -24,14 +24,14 @@ test.describe("Chat interface", () => {
   });
 
   test("Chat input has placeholder text", async ({ page }) => {
-    const input = page.getByRole("textbox");
+    const input = page.getByPlaceholder("Type a message...");
     await expect(input).toBeVisible();
     const placeholder = await input.getAttribute("placeholder");
     expect(placeholder).toBeTruthy();
   });
 
   test("Send button and Run as task button are visible", async ({ page }) => {
-    await expect(page.getByRole("button", { name: /send message/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /send chat message/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /run as task/i })).toBeVisible();
   });
 
@@ -127,7 +127,7 @@ test.describe("Chat navigation", () => {
   test("Navigate from Chat to Board", async ({ page }) => {
     await page.getByRole("link", { name: "Board" }).click();
     await expect(page).toHaveURL(/\/board/);
-    await expect(page.getByText("Backlog")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Backlog/i }).first()).toBeVisible();
   });
 
   test("Navigate from Chat to Tools", async ({ page }) => {
@@ -173,7 +173,7 @@ test.describe("Chat responsive layout", () => {
     // Sidebar should have the VWP Board heading
     await expect(page.getByRole("heading", { name: "VWP Board" })).toBeVisible();
     // Chat input should be visible
-    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
   });
 
   test("Mobile hides sidebar and shows bottom tabs", async ({ page }) => {
@@ -182,7 +182,7 @@ test.describe("Chat responsive layout", () => {
     await page.waitForLoadState("networkidle");
 
     // Chat input should still be visible
-    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
     // Bottom nav should be visible (target the fixed bottom nav, not sidebar)
     const bottomNav = page.locator("nav.md\\:hidden");
     await expect(bottomNav).toBeVisible();
@@ -217,9 +217,9 @@ test.describe("Settings page", () => {
     await page.goto("/settings");
   });
 
-  test("Settings page shows team management section", async ({ page }) => {
-    await expect(page.getByText("Team Management")).toBeVisible();
-    await expect(page.getByRole("button", { name: /add team member/i })).toBeVisible();
+  test("Settings page shows workforce management section", async ({ page }) => {
+    await expect(page.getByText("Virtual Workforce")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open Workforce/i })).toBeVisible();
   });
 
   test("Settings page shows Reset Onboarding action", async ({ page }) => {
@@ -245,11 +245,11 @@ test.describe("Gateway status banner", () => {
   test("Chat input and buttons exist regardless of gateway state", async ({ page }) => {
     await page.waitForTimeout(2000);
 
-    const input = page.getByRole("textbox");
+    const input = page.getByPlaceholder("Type a message...");
     await expect(input).toBeVisible();
 
     // Send and task buttons should exist
-    await expect(page.getByRole("button", { name: /send message/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /send chat message/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /run as task/i })).toBeVisible();
   });
 });

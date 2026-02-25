@@ -1,9 +1,14 @@
 import { test, expect } from "@playwright/test";
 
+async function fillGoalInput(page: import("@playwright/test").Page, value: string) {
+  const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
+  await expect(textarea).toBeVisible({ timeout: 10000 });
+  await textarea.fill(value);
+}
+
 test.describe("Goal input page", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/goals/new");
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
       localStorage.setItem("vwp-board-onboarding-complete", "true");
     });
     await page.goto("/goals/new");
@@ -16,7 +21,7 @@ test.describe("Goal input page", () => {
   });
 
   test("Example prompt chips are clickable", async ({ page }) => {
-    const textarea = page.getByLabel("Describe your goal");
+    const textarea = page.getByRole("textbox", { name: /Describe your goal/i });
 
     // Click on an example prompt
     const exampleBtn = page.getByText("Run a Valentine\u2019s Day sale");
@@ -28,20 +33,18 @@ test.describe("Goal input page", () => {
 
   test("Submit button disabled for short input", async ({ page }) => {
     const submitBtn = page.getByRole("button", { name: "Analyze & Plan" });
-    const textarea = page.getByLabel("Describe your goal");
 
     // Type short input (less than 10 chars)
-    await textarea.fill("short");
+    await fillGoalInput(page, "short");
 
     await expect(submitBtn).toBeDisabled();
   });
 
   test("Submit button enabled for valid input", async ({ page }) => {
     const submitBtn = page.getByRole("button", { name: "Analyze & Plan" });
-    const textarea = page.getByLabel("Describe your goal");
 
     // Type valid input (at least 10 chars)
-    await textarea.fill("Create a marketing campaign for our new product launch");
+    await fillGoalInput(page, "Create a marketing campaign for our new product launch");
 
     await expect(submitBtn).toBeEnabled();
   });

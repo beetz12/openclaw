@@ -91,6 +91,23 @@ test.describe("Tools page — error state (no backend)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/board");
     await skipOnboarding(page);
+
+    // Force deterministic backend failure for this suite
+    await page.route("**/vwp/tools", (route) => {
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "dispatch unavailable" }),
+      });
+    });
+
+    await page.route("**/vwp/tools/runs", (route) => {
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "dispatch unavailable" }),
+      });
+    });
   });
 
   test("shows error message when API is unavailable", async ({ page }) => {
@@ -108,7 +125,7 @@ test.describe("Tools page — error state (no backend)", () => {
   test("shows helpful empty state with tools/ directory hint", async ({ page }) => {
     await page.goto("/tools");
     await expect(page.getByText("No workspace tools found")).toBeVisible();
-    await expect(page.getByText("tools/")).toBeVisible();
+    await expect(page.getByText("tools/", { exact: true })).toBeVisible();
   });
 });
 
