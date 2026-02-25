@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -7,6 +8,7 @@ import { analyzeTask } from "./analyzer.js";
 import { moveTask } from "./board-state.js";
 import { checkBudget } from "./budget.js";
 import { createChatHttpHandler } from "./chat-routes.js";
+import { createCronHttpHandler } from "./cron-routes.js";
 import { ServerChatStore } from "./chat-store.js";
 import * as checkpoint from "./checkpoint.js";
 import { checkCliHealth } from "./cli-health-check.js";
@@ -14,6 +16,7 @@ import { VwpConfigStore } from "./config-store.js";
 import { loadBusinessContext, loadProfile } from "./context-loader.js";
 import { getMonthlySpend } from "./cost-tracker.js";
 import { createCoworkHttpHandler } from "./cowork-routes.js";
+import { createUsageHttpHandler } from "./usage-routes.js";
 import { GatewayClient } from "./gateway-client.js";
 import { HealthMonitor } from "./health-monitor.js";
 import { createKanbanHttpHandler } from "./kanban-routes.js";
@@ -22,6 +25,7 @@ import { enrichDecomposition, formatEnrichmentPrompt } from "./memory/index.js";
 import { createOnboardingHttpHandler } from "./onboarding.js";
 import { createProjectHttpHandler, loadProjects } from "./project-registry.js";
 import { createDispatchHttpHandler } from "./routes.js";
+import { loadWorkforceAgents, pickBestAgent } from "./assignment-engine.js";
 import { ShutdownManager } from "./shutdown.js";
 import { matchSkills } from "./skill-matcher.js";
 import { SkillRegistry } from "./skill-registry.js";
@@ -278,6 +282,20 @@ export default {
     });
     api.registerHttpHandler(coworkHandler);
 
+    // Cron REST bridge — exposes gateway cron RPC methods as HTTP endpoints
+    const cronHandler = createCronHttpHandler({
+      gatewayToken,
+      gateway: () => gateway,
+    });
+    api.registerHttpHandler(cronHandler);
+
+    // Usage/sessions/health/config/channels REST bridge
+    const usageHandler = createUsageHttpHandler({
+      gatewayToken,
+      gateway: () => gateway,
+    });
+    api.registerHttpHandler(usageHandler);
+
     // Auto-analyze tasks when they become active in the queue.
     queue.on("task_started", (task: TaskRequest) => {
       void analyzeNewTask(task);
@@ -346,13 +364,46 @@ export default {
           throw new Error("No decomposition found — task was not analyzed");
         }
 
-        // 1. Match subtasks to skills.
+        // 1. Resolve workforce assignment profile for execution routing.
+        const agents = await loadWorkforceAgents();
+        const requiredSkills = Array.from(new Set(decomposition.subtasks.map((s) => s.domain)));
+        const assignmentDecision = pickBestAgent(agents, {
+          roleHint: taskData.assignment.assignedRole ?? undefined,
+          requiredSkills,
+          manualLock: taskData.assignment.assignmentMode === "manual-lock",
+          existing: taskData.assignment,
+        });
+
+        await checkpoint.saveAssignmentProfile(task.id, {
+          assignedAgentId: assignmentDecision.assignedAgentId,
+          assignedRole: assignmentDecision.assignedRole,
+          requiredSkills: assignmentDecision.requiredSkills,
+          assignmentMode: assignmentDecision.assignmentMode,
+          assignmentReason: assignmentDecision.assignmentReason,
+          executorAgentId: assignmentDecision.assignedAgentId,
+          executionProfile: {
+            scoreBreakdown: assignmentDecision.scoreBreakdown,
+            selectedAt: Date.now(),
+          },
+        });
+
+        await checkpoint.saveActivity(task.id, {
+          id: randomUUID(),
+          taskId: task.id,
+          timestamp: Date.now(),
+          type: "agent_action",
+          agentName: assignmentDecision.assignedRole ?? "orchestrator",
+          action: "execution_routed",
+          detail: assignmentDecision.assignmentReason,
+        });
+
+        // 2. Match subtasks to skills.
         const matches = matchSkills(decomposition.subtasks, registry);
 
-        // 2. Load business context for team lead.
+        // 3. Load business context for team lead.
         const context = await loadBusinessContext("lead");
 
-        // 3. Assemble team spec.
+        // 4. Assemble team spec.
         const spec = assembleTeam(matches, context, {
           complexity: decomposition.estimatedComplexity,
         });
@@ -367,10 +418,31 @@ export default {
           throw new Error(`Budget exceeded: ${budgetCheck.reason}`);
         }
 
-        // 4. Launch agent team with SSE for real-time events.
+        // 4. Register sub-agents + launch team with SSE for real-time events.
+        for (const specialist of spec.specialists) {
+          await checkpoint.saveSubagent(task.id, {
+            id: `${task.id}-${specialist.role}`,
+            taskId: task.id,
+            timestamp: Date.now(),
+            sessionId: `${task.id}:${specialist.role}`,
+            agentName: specialist.role,
+            status: "active",
+            note: `${specialist.skillPlugin}/${specialist.skillName}`,
+          });
+        }
+
         api.logger.info(
           `vwp-dispatch: launching team for task ${task.id} (${spec.specialists.length} specialists, ~$${spec.estimatedCost.estimatedCostUsd.toFixed(2)})`,
         );
+        await checkpoint.saveActivity(task.id, {
+          id: randomUUID(),
+          taskId: task.id,
+          timestamp: Date.now(),
+          type: "status_change",
+          action: "team_launch",
+          detail: `Launching ${spec.specialists.length} specialists`,
+        });
+
         const handle = await launchTeam(spec, task.id, registry, {
           provider: pluginCfg.provider,
           model: pluginCfg.teamModel ?? "opus",
@@ -379,8 +451,39 @@ export default {
           agentState,
         });
 
-        // 5. Stop the monitor and move board: in_progress -> review -> done
+        // 5. Stop monitor and move board: in_progress -> review (human approval gate)
         await handle.monitor.stop();
+
+        for (const specialist of spec.specialists) {
+          await checkpoint.saveSubagent(task.id, {
+            id: `${task.id}-${specialist.role}-completed`,
+            taskId: task.id,
+            timestamp: Date.now(),
+            sessionId: `${task.id}:${specialist.role}`,
+            agentName: specialist.role,
+            status: "completed",
+          });
+        }
+
+        await checkpoint.saveDeliverable(task.id, {
+          id: `${task.id}-final-deliverable`,
+          taskId: task.id,
+          timestamp: Date.now(),
+          type: "artifact",
+          title: "Final synthesized result",
+          path: `${join(homedir(), ".openclaw", "vwp", "tasks", task.id, "final.json")}`,
+          description: "Synthesized output from specialist team execution",
+        });
+
+        await checkpoint.saveActivity(task.id, {
+          id: randomUUID(),
+          taskId: task.id,
+          timestamp: Date.now(),
+          type: "status_change",
+          action: "ready_for_review",
+          detail: "Execution complete, moved to review",
+        });
+
         await moveTask(task.id, "review");
         sse.emit({
           type: "task_column_changed",
@@ -389,12 +492,9 @@ export default {
           to: "review",
         });
 
-        await moveTask(task.id, "done");
-        sse.emit({ type: "task_column_changed", taskId: task.id, from: "review", to: "done" });
-
         await queue.completeActive();
         agentState.clearForTask(task.id);
-        api.logger.info(`vwp-dispatch: task ${task.id} completed`);
+        api.logger.info(`vwp-dispatch: task ${task.id} completed and moved to review`);
       } catch (err) {
         api.logger.error(`vwp-dispatch: pipeline failed for task ${task.id}: ${String(err)}`);
         await checkpoint.saveFinal(task.id, {
