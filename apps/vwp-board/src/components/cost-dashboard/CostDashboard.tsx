@@ -60,36 +60,57 @@ function buildEntries(tasks: KanbanTask[]): TaskCostEntry[] {
     }));
 }
 
+type GatewayUsage = {
+  totals: { totalCost: number; totalTokens: number; input: number; output: number };
+  daily: Array<{ date: string; totalCost: number; totalTokens: number }>;
+} | null;
+
 export function CostDashboard() {
   const router = useRouter();
   const [allTasks, setAllTasks] = useState<KanbanTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<DateRange>("30d");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [gatewayUsage, setGatewayUsage] = useState<GatewayUsage>(null);
+
+  const loadCostData = useCallback(async () => {
+    try {
+      const board = await kanbanApi.getBoard();
+      const tasks = Object.values(board.columns).flat();
+      setAllTasks(tasks);
+      setError(null);
+      setLastUpdated(Date.now());
+    } catch (err) {
+      const msg =
+        err && typeof err === "object" && "error" in err
+          ? (err as { error: string }).error
+          : "Failed to load cost data";
+      setError(msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+    try {
+      const days = range === "7d" ? 7 : range === "30d" ? 30 : 365;
+      const usage = await kanbanApi.getUsageCost({ days });
+      setGatewayUsage({ totals: usage.totals, daily: usage.daily });
+    } catch {
+      // Gateway may not be connected — leave as null
+    }
+  }, [range]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const board = await kanbanApi.getBoard();
-        if (cancelled) {return;}
-        const tasks = Object.values(board.columns).flat();
-        setAllTasks(tasks);
-      } catch (err) {
-        if (cancelled) {return;}
-        const msg =
-          err && typeof err === "object" && "error" in err
-            ? (err as { error: string }).error
-            : "Failed to load cost data";
-        setError(msg);
-      } finally {
-        if (!cancelled) {setLoading(false);}
-      }
+      if (cancelled) return;
+      await loadCostData();
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadCostData]);
 
   const filtered = useMemo(() => filterByRange(allTasks, range), [allTasks, range]);
 
@@ -133,7 +154,10 @@ export function CostDashboard() {
           <p className="text-sm text-[var(--color-danger)]">{error}</p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setRefreshing(true);
+              void loadCostData();
+            }}
             className="mt-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
           >
             Retry
@@ -153,8 +177,25 @@ export function CostDashboard() {
     <div className="flex flex-col gap-6 p-4 sm:p-6 pb-24 md:pb-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 className="text-xl font-bold text-[var(--color-text)]">Cost Dashboard</h2>
-        <div className="flex gap-1 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+        <div>
+          <h2 className="text-xl font-bold text-[var(--color-text)]">Cost Dashboard</h2>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString()}` : "Not updated yet"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setRefreshing(true);
+              void loadCostData();
+            }}
+            disabled={refreshing}
+            className="rounded border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <div className="flex gap-1 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
           {RANGES.map((r) => (
             <button
               key={r.value}
@@ -170,6 +211,7 @@ export function CostDashboard() {
               {r.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -182,6 +224,47 @@ export function CostDashboard() {
         spendTrend={null}
         tasksTrend={null}
       />
+
+      {/* Gateway usage section */}
+      {gatewayUsage !== null && (
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">
+            Gateway Usage (All Sessions)
+          </h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+              <p className="text-xs text-[var(--color-text-muted)]">Total Cost</p>
+              <p className="mt-1 text-xl font-bold text-[var(--color-text)]">
+                ${gatewayUsage.totals.totalCost.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+              <p className="text-xs text-[var(--color-text-muted)]">Total Tokens</p>
+              <p className="mt-1 text-xl font-bold text-[var(--color-text)]">
+                {gatewayUsage.totals.totalTokens >= 1000
+                  ? `${(gatewayUsage.totals.totalTokens / 1000).toFixed(1)}k`
+                  : gatewayUsage.totals.totalTokens.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+              <p className="text-xs text-[var(--color-text-muted)]">Input Tokens</p>
+              <p className="mt-1 text-xl font-bold text-[var(--color-text)]">
+                {gatewayUsage.totals.input >= 1000
+                  ? `${(gatewayUsage.totals.input / 1000).toFixed(1)}k`
+                  : gatewayUsage.totals.input.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+              <p className="text-xs text-[var(--color-text-muted)]">Output Tokens</p>
+              <p className="mt-1 text-xl font-bold text-[var(--color-text)]">
+                {gatewayUsage.totals.output >= 1000
+                  ? `${(gatewayUsage.totals.output / 1000).toFixed(1)}k`
+                  : gatewayUsage.totals.output.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chart */}
       <CostChart data={dailyCosts} />
