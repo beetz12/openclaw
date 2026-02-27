@@ -28,4 +28,29 @@ export class ActionsRepo {
         action.note ?? null
       );
   }
+
+  list(params: { ideaId?: string; limit?: number; offset?: number }): Record<string, unknown>[] {
+    const limit = params.limit ?? 50;
+    const offset = params.offset ?? 0;
+    if (params.ideaId) {
+      return this.db
+        .prepare(
+          `SELECT id, created_at, idea_id, actor, action_type, note
+           FROM content_actions
+           WHERE idea_id = ?
+           ORDER BY created_at DESC
+           LIMIT ? OFFSET ?`
+        )
+        .all(params.ideaId, limit, offset) as Record<string, unknown>[];
+    }
+
+    return this.db
+      .prepare(
+        `SELECT id, created_at, idea_id, actor, action_type, note
+         FROM content_actions
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(limit, offset) as Record<string, unknown>[];
+  }
 }

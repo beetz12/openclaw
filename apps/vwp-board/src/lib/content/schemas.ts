@@ -130,6 +130,12 @@ export const runsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+export const actionsQuerySchema = z.object({
+  idea_id: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 export type IngestRequest = z.infer<typeof ingestRequestSchema>;
 export type ContentActionRequest = z.infer<typeof contentActionRequestSchema>;
 export type IdeaStatusUpdateRequest = z.infer<typeof ideaStatusUpdateSchema>;
