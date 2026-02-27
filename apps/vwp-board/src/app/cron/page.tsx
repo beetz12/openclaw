@@ -26,6 +26,15 @@ type RunEntry = {
   error?: string;
   summary?: string;
   durationMs?: number;
+  sessionKey?: string;
+};
+
+type SessionHistoryMessage = {
+  role?: string;
+  content?: unknown;
+  tool_name?: string;
+  tool_result?: unknown;
+  ts?: number;
 };
 
 function formatSchedule(schedule: CronJob["schedule"]): string {
@@ -50,11 +59,11 @@ function formatSchedule(schedule: CronJob["schedule"]): string {
 function timeAgo(ms: number): string {
   const diff = Date.now() - ms;
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) {return "just now";}
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) {return `${minutes}m ago`;}
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {return `${hours}h ago`;}
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
@@ -68,9 +77,31 @@ function StatusDot({ enabled }: { enabled: boolean }) {
   );
 }
 
+function toPreviewText(content: unknown): string {
+  if (typeof content === "string") {return content;}
+  if (Array.isArray(content)) {
+    const textParts = content
+      .map((item) => {
+        if (typeof item === "string") {return item;}
+        if (item && typeof item === "object" && "text" in item && typeof (item as { text?: unknown }).text === "string") {
+          return (item as { text: string }).text;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return textParts.join(" ");
+  }
+  if (content && typeof content === "object") {
+    return JSON.stringify(content);
+  }
+  return "";
+}
+
 function RunHistory({ jobId, onClose }: { jobId: string; onClose: () => void }) {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoadingFor, setActionLoadingFor] = useState<string | null>(null);
+  const [runActions, setRunActions] = useState<Record<string, SessionHistoryMessage[]>>({});
 
   useEffect(() => {
     kanbanApi
@@ -85,6 +116,29 @@ function RunHistory({ jobId, onClose }: { jobId: string; onClose: () => void }) 
         setLoading(false);
       });
   }, [jobId]);
+
+  const loadRunActions = async (run: RunEntry) => {
+    if (!run.sessionKey) {return;}
+    const runKey = `${run.ts}-${run.jobId}`;
+    if (runActions[runKey]) {
+      setRunActions((prev) => {
+        const next = { ...prev };
+        delete next[runKey];
+        return next;
+      });
+      return;
+    }
+    setActionLoadingFor(runKey);
+    try {
+      const history = await kanbanApi.getSessionHistory(run.sessionKey, 40);
+      const messages = (history.messages ?? []).filter((m) => m.role === "assistant" || m.role === "tool").slice(-12);
+      setRunActions((prev) => ({ ...prev, [runKey]: messages }));
+    } catch {
+      setRunActions((prev) => ({ ...prev, [runKey]: [] }));
+    } finally {
+      setActionLoadingFor(null);
+    }
+  };
 
   return (
     <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
@@ -137,7 +191,39 @@ function RunHistory({ jobId, onClose }: { jobId: string; onClose: () => void }) 
                     ({run.durationMs}ms)
                   </span>
                 )}
+                {run.sessionKey && (
+                  <button
+                    type="button"
+                    className="ml-2 rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--color-bg-subtle)]"
+                    onClick={() => void loadRunActions(run)}
+                  >
+                    {actionLoadingFor === `${run.ts}-${run.jobId}`
+                      ? "Loading…"
+                      : runActions[`${run.ts}-${run.jobId}`]
+                        ? "Hide actions"
+                        : "View actions"}
+                  </button>
+                )}
+                {run.sessionKey && (
+                  <span className="ml-1.5 text-[10px] text-[var(--color-text-muted)]">{run.sessionKey}</span>
+                )}
               </div>
+              {runActions[`${run.ts}-${run.jobId}`] && (
+                <div className="mt-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-2 text-[11px]">
+                  {runActions[`${run.ts}-${run.jobId}`].length === 0 ? (
+                    <div className="text-[var(--color-text-muted)]">No assistant/tool actions found.</div>
+                  ) : (
+                    <ul className="space-y-1">
+                      {runActions[`${run.ts}-${run.jobId}`].map((msg, idx) => (
+                        <li key={`${run.ts}-${run.jobId}-action-${idx}`} className="leading-snug">
+                          <span className="font-medium">{msg.role ?? "message"}:</span>{" "}
+                          <span className="text-[var(--color-text-muted)]">{toPreviewText(msg.content).slice(0, 220) || (msg.tool_name ?? "(no text)")}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

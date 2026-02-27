@@ -172,7 +172,7 @@ export class KanbanApiClient {
         updatedAt: data.updatedAt,
         column: col,
         position: i,
-        priority: (t.priority as KanbanTask["priority"] | undefined) ?? ("medium" as const),
+        priority: (t.priority) ?? ("medium" as const),
         decomposition: null,
         subtasks: [],
         status: (t.status as KanbanTask["status"]) ?? "queued",
@@ -202,13 +202,16 @@ export class KanbanApiClient {
       ? (final.subtasks as Array<Record<string, unknown>>)
       : [];
 
+    const str = (v: unknown, fallback: string): string =>
+      typeof v === "string" ? v : typeof v === "number" ? String(v) : fallback;
+
     const subtasks: KanbanTask["subtasks"] = finalSubtasks.map((st, i) => ({
-      id: String(st.id ?? `${id}-subtask-${i}`),
-      taskId: String(raw.id ?? id),
-      description: String(st.description ?? `Subtask ${i + 1}`),
-      domain: String(st.domain ?? "general"),
-      skillPlugin: String(st.skillPlugin ?? ""),
-      skillName: String(st.skillName ?? ""),
+      id: str(st.id, `${id}-subtask-${i}`),
+      taskId: str(raw.id, id),
+      description: str(st.description, `Subtask ${i + 1}`),
+      domain: str(st.domain, "general"),
+      skillPlugin: str(st.skillPlugin, ""),
+      skillName: str(st.skillName, ""),
       status: (st.status as KanbanTask["subtasks"][number]["status"]) ?? "pending",
       assignedAgent: (st.assignedAgent as string | null | undefined) ?? null,
       result: (st.result as string | null | undefined) ?? null,
@@ -236,14 +239,14 @@ export class KanbanApiClient {
     const error = status === "failed" ? (synthesized ?? "Task failed") : null;
 
     return {
-      id: String(raw.id ?? id),
-      text: String(raw.text ?? request.text ?? "Untitled task"),
+      id: str(raw.id, id),
+      text: str(raw.text ?? request.text, "Untitled task"),
       assignment: {
         assignedAgentId: (assignment.assignedAgentId as string | null | undefined) ?? null,
         assignedRole: (assignment.assignedRole as string | null | undefined) ?? null,
         assignmentMode: (assignment.assignmentMode as "auto" | "manual-lock" | undefined) ?? "auto",
       },
-      userId: String(raw.userId ?? ""),
+      userId: str(raw.userId, ""),
       createdAt: Number(raw.createdAt ?? request.createdAt ?? Date.now()),
       updatedAt: Number(raw.updatedAt ?? Date.now()),
       column,
@@ -257,7 +260,7 @@ export class KanbanApiClient {
       actualCost: (raw.actualCost as KanbanTask["actualCost"]) ?? null,
       result,
       error,
-      domain: String(raw.domain ?? ""),
+      domain: str(raw.domain, ""),
       tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
     };
   }
@@ -697,6 +700,16 @@ export class KanbanApiClient {
       limit: opts?.limit,
       search: opts?.search,
       activeMinutes: opts?.activeMinutes,
+    });
+    return this._fetch(url);
+  }
+
+  async getSessionHistory(sessionKey: string, limit = 80): Promise<{
+    sessionKey: string;
+    messages: Array<{ role?: string; content?: unknown; tool_name?: string; tool_result?: unknown; ts?: number }>;
+  }> {
+    const url = this._url(`/vwp/sessions/${encodeURIComponent(sessionKey)}/history`, {
+      limit,
     });
     return this._fetch(url);
   }
