@@ -13,9 +13,9 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { GatewayClient } from "./gateway-client.js";
 import { getBearerToken } from "../../src/gateway/http-utils.js";
 import { safeEqualSecret } from "../../src/security/secret-equal.js";
+import type { GatewayClient } from "./gateway-client.js";
 
 function jsonResponse(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
@@ -61,6 +61,7 @@ export function createUsageHttpHandler(deps: UsageRoutesDeps) {
     if (
       !pathname.startsWith("/vwp/usage/") &&
       pathname !== "/vwp/sessions" &&
+      !pathname.startsWith("/vwp/sessions/") &&
       pathname !== "/vwp/health" &&
       !pathname.startsWith("/vwp/gateway/") &&
       !pathname.startsWith("/vwp/channels/")
@@ -154,6 +155,36 @@ export function createUsageHttpHandler(deps: UsageRoutesDeps) {
 
       try {
         const result = await gw.call("sessions.list", params);
+        jsonResponse(res, 200, result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        jsonResponse(res, 502, { error: msg });
+      }
+      return true;
+    }
+
+    // ---------- GET /vwp/sessions/:sessionKey/history ----------
+    if (pathname.startsWith("/vwp/sessions/") && pathname.endsWith("/history")) {
+      if (!checkAuth(req, res)) return true;
+      const gw = checkGateway(res);
+      if (!gw) return true;
+
+      const match = pathname.match(/^\/vwp\/sessions\/(.+)\/history$/);
+      const sessionKeyRaw = match?.[1] ?? "";
+      const sessionKey = sessionKeyRaw ? decodeURIComponent(sessionKeyRaw) : "";
+      if (!sessionKey) {
+        jsonResponse(res, 400, { error: "Missing session key" });
+        return true;
+      }
+
+      const limitRaw = url.searchParams.get("limit");
+      const limit = limitRaw ? parseInt(limitRaw, 10) : 100;
+
+      try {
+        const result = await gw.call("chat.history", {
+          sessionKey,
+          limit: Number.isFinite(limit) ? Math.max(1, Math.min(limit, 200)) : 100,
+        });
         jsonResponse(res, 200, result);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

@@ -1,11 +1,33 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { contentActionRequestSchema } from "@/lib/content/schemas";
+import { actionsQuerySchema, contentActionRequestSchema } from "@/lib/content/schemas";
 import { ActionsRepo } from "@/lib/content/repositories/actions-repo";
 import { IdeasRepo } from "@/lib/content/repositories/ideas-repo";
 
 export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const parsed = actionsQuerySchema.safeParse({
+    idea_id: url.searchParams.get("idea_id") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
+    offset: url.searchParams.get("offset") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "validation_error", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const db = getDb();
+  const repo = new ActionsRepo(db);
+  const rows = repo.list({
+    ideaId: parsed.data.idea_id,
+    limit: parsed.data.limit,
+    offset: parsed.data.offset,
+  });
+  return NextResponse.json({ items: rows });
+}
 
 export async function POST(req: NextRequest) {
   let body: unknown;

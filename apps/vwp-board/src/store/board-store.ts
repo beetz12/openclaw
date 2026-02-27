@@ -360,10 +360,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         set({ gatewayConnected: event.connected });
         break;
       case "tool_run_started": {
-        const ev = event as unknown as { run: (typeof state.toolRuns)[0] };
-        set((state) => ({
-          toolRuns: [...state.toolRuns.filter((r) => r.runId !== ev.run.runId), ev.run],
-        }));
+        set((state) => {
+          const ev = event as unknown as { run: (typeof state.toolRuns)[number] };
+          return {
+            toolRuns: [...state.toolRuns.filter((r) => r.runId !== ev.run.runId), ev.run],
+          };
+        });
         break;
       }
       case "tool_run_output": {
