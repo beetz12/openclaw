@@ -19,7 +19,7 @@ export function ProjectSelector() {
   const pathRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchProjects();
+    void fetchProjects();
   }, [fetchProjects]);
 
   const isElectron =
@@ -170,7 +170,7 @@ export function ProjectSelector() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeProject(project.id);
+                  void removeProject(project.id);
                 }}
                 className="ml-2 shrink-0 rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-danger)] transition-colors"
                 title="Remove project"
