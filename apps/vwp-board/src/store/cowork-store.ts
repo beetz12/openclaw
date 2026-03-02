@@ -117,7 +117,7 @@ function appendCoworkToken(
   }
 }
 
-export const useCoworkStore = create<CoworkStore>((set, get) => ({
+export const useCoworkStore = create<CoworkStore>((set) => ({
   // Initial state
   projects: [],
   selectedProjectId: null,

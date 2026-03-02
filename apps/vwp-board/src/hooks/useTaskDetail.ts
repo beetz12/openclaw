@@ -46,7 +46,7 @@ export function useTaskDetail(taskId: string): TaskDetailState {
 
   // Initial fetch
   useEffect(() => {
-    fetchDetail();
+    void fetchDetail();
   }, [fetchDetail]);
 
   // SSE subscriptions for real-time updates to this task

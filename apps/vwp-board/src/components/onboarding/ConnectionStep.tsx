@@ -53,7 +53,7 @@ export function ConnectionStep() {
       }
     }
 
-    autoDetect();
+    void autoDetect();
     return () => { cancelled = true; };
     // Only run on mount — deps intentionally excluded
     // eslint-disable-next-line react-hooks/exhaustive-deps
