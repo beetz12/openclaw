@@ -86,25 +86,25 @@ export class BoardSSEClient {
       const source = new EventSource(url.toString());
       this._source = source;
 
-    source.addEventListener("open", () => {
-      this._retryMs = INITIAL_RETRY_MS;
-      this._lastHeartbeat = Date.now();
-      this._startHeartbeatChecker();
-    });
+      source.addEventListener("open", () => {
+        this._retryMs = INITIAL_RETRY_MS;
+        this._lastHeartbeat = Date.now();
+        this._startHeartbeatChecker();
+      });
 
-    source.addEventListener("error", () => {
-      this._cleanup();
-      if (!this._intentionalClose) {
-        this._scheduleReconnect(baseUrl);
-      }
-    });
+      source.addEventListener("error", () => {
+        this._cleanup();
+        if (!this._intentionalClose) {
+          this._scheduleReconnect(baseUrl);
+        }
+      });
 
-    // Listen for typed events. The server sends events with
-    // `event: <type>` so we listen on specific event names.
-    // Also listen for generic `message` events as a fallback.
-    source.addEventListener("message", (ev) => {
-      this._dispatch(ev);
-    });
+      // Listen for typed events. The server sends events with
+      // `event: <type>` so we listen on specific event names.
+      // Also listen for generic `message` events as a fallback.
+      source.addEventListener("message", (ev) => {
+        this._dispatch(ev);
+      });
 
     /**
      * SSE Event Type Registration (TWO-PLACE RULE):
