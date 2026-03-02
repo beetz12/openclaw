@@ -9,6 +9,18 @@ import type {
 } from "@/types/kanban";
 import { kanbanApi } from "@/lib/api-client";
 
+function getErrorMessage(err: unknown): string {
+  if (
+    err &&
+    typeof err === "object" &&
+    "error" in err &&
+    typeof err.error === "string"
+  ) {
+    return err.error;
+  }
+  return "Failed to load board";
+}
+
 /** SSE event types that the store handles. */
 export type KanbanSSEEvent =
   | {
@@ -41,9 +53,9 @@ export type KanbanSSEEvent =
   | { type: "gateway_status"; connected: boolean }
   | { type: "tool_run_started"; run: { runId: string; toolName: string; toolLabel: string; status: string; startedAt: number } }
   | { type: "tool_run_output"; runId: string; stream: "stdout" | "stderr"; chunk: string }
-  | { type: "tool_run_completed"; runId: string; toolName: string; exitCode: number; durationMs: number }
-  | { type: "tool_run_failed"; runId: string; toolName: string; error: string }
-  | { type: "tool_run_cancelled"; runId: string; toolName: string }
+  | { type: "tool_run_completed"; runId: string; exitCode: number }
+  | { type: "tool_run_failed"; runId: string; error: string }
+  | { type: "tool_run_cancelled"; runId: string }
   | { type: "chat_message"; messageId: string; role: "assistant"; content: string; done: boolean }
   | { type: "chat_stream_token"; messageId: string; token: string }
   | { type: "chat_task_dispatched"; messageId: string; taskId: string; title: string }
@@ -160,10 +172,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const board: BoardState = await kanbanApi.getBoard();
       set({ columns: board.columns, loading: false, error: null, hasLoaded: true });
     } catch (err) {
-      const msg =
-        err && typeof err === "object" && "error" in err
-          ? (err as { error: string }).error
-          : "Failed to load board";
+      const msg = getErrorMessage(err);
       if (initialLoad) {
         set({ error: msg, loading: false });
       } else {
@@ -360,52 +369,48 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         set({ gatewayConnected: event.connected });
         break;
       case "tool_run_started": {
-        set((state) => {
-          const ev = event as unknown as { run: (typeof state.toolRuns)[number] };
-          return {
-            toolRuns: [...state.toolRuns.filter((r) => r.runId !== ev.run.runId), ev.run],
-          };
-        });
+        set((state) => ({
+          toolRuns: [
+            ...state.toolRuns.filter((r) => r.runId !== event.run.runId),
+            event.run,
+          ],
+        }));
         break;
       }
       case "tool_run_output": {
-        const ev = event as unknown as { runId: string; chunk: string };
         set((state) => ({
           toolOutputs: {
             ...state.toolOutputs,
-            [ev.runId]: (state.toolOutputs[ev.runId] ?? "") + ev.chunk,
+            [event.runId]: (state.toolOutputs[event.runId] ?? "") + event.chunk,
           },
         }));
         break;
       }
       case "tool_run_completed": {
-        const ev = event as unknown as { runId: string; exitCode: number };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === ev.runId
-              ? { ...r, status: "completed" as const, exitCode: ev.exitCode, completedAt: Date.now() }
+            r.runId === event.runId
+              ? { ...r, status: "completed", exitCode: event.exitCode, completedAt: Date.now() }
               : r,
           ),
         }));
         break;
       }
       case "tool_run_failed": {
-        const ev = event as unknown as { runId: string; error: string };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === ev.runId
-              ? { ...r, status: "failed" as const, error: ev.error, completedAt: Date.now() }
+            r.runId === event.runId
+              ? { ...r, status: "failed", error: event.error, completedAt: Date.now() }
               : r,
           ),
         }));
         break;
       }
       case "tool_run_cancelled": {
-        const ev = event as unknown as { runId: string };
         set((state) => ({
           toolRuns: state.toolRuns.map((r) =>
-            r.runId === ev.runId
-              ? { ...r, status: "cancelled" as const, completedAt: Date.now() }
+            r.runId === event.runId
+              ? { ...r, status: "cancelled", completedAt: Date.now() }
               : r,
           ),
         }));
@@ -423,7 +428,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 }));
 
+declare global {
+  interface Window {
+    __boardStore?: typeof useBoardStore;
+  }
+}
+
 // Expose store on window for E2E testing
 if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).__boardStore = useBoardStore;
+  window.__boardStore = useBoardStore;
 }
