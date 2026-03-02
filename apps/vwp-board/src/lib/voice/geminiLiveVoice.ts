@@ -374,7 +374,9 @@ export class GeminiLiveVoice {
     this.playbackCursor += buffer.duration;
 
     this.activeSources.add(source);
-    source.onended = () => { this.activeSources.delete(source); };
+    source.addEventListener("ended", () => {
+      this.activeSources.delete(source);
+    }, { once: true });
   }
 
   private async ensurePlaybackContext(): Promise<AudioContext> {

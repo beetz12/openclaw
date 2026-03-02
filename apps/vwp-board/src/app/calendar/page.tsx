@@ -75,8 +75,8 @@ export default function CalendarPage() {
   }, []);
 
   const taskItems = useMemo<CalendarItem[]>(() => {
-    return [...tasks]
-      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
+    return tasks
+      .toSorted((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
       .slice(0, 20)
       .map((t) => ({
         id: t.id,

@@ -103,8 +103,8 @@ export function CostDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (cancelled) return;
+    void (async () => {
+      if (cancelled) {return;}
       await loadCostData();
     })();
     return () => {
