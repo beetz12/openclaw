@@ -390,7 +390,9 @@ export default function ToolsPage() {
                 key={run.runId}
                 run={run}
                 output={toolOutputs[run.runId] ?? ""}
-                onCancel={() => handleCancel(run.runId)}
+                onCancel={() => {
+                  void handleCancel(run.runId);
+                }}
               />
             ))}
           </div>

@@ -33,7 +33,7 @@ export function AgentCard({ agent, onTaskClick }: AgentCardProps) {
       {agent.taskId && (
         <button
           type="button"
-          onClick={() => onTaskClick?.(agent.taskId!)}
+          onClick={() => onTaskClick?.(agent.taskId)}
           className="mt-1.5 text-xs text-[var(--color-primary)] hover:underline truncate block w-full text-left"
         >
           Task: {agent.taskId.slice(0, 8)}...
