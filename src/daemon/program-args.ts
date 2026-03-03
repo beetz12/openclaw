@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { isBunRuntime, isNodeRuntime } from "./runtime-binary.js";
+import { STATE_DIR } from "../config/paths.js";
 
 type GatewayProgramArgs = {
   programArguments: string[];
@@ -8,6 +8,16 @@ type GatewayProgramArgs = {
 };
 
 type GatewayRuntimePreference = "auto" | "node" | "bun";
+
+function isNodeRuntime(execPath: string): boolean {
+  const base = path.basename(execPath).toLowerCase();
+  return base === "node" || base === "node.exe";
+}
+
+function isBunRuntime(execPath: string): boolean {
+  const base = path.basename(execPath).toLowerCase();
+  return base === "bun" || base === "bun.exe";
+}
 
 async function resolveCliEntrypointPathForService(): Promise<string> {
   const argv1 = process.argv[1];
@@ -139,10 +149,10 @@ async function resolveNodePath(): Promise<string> {
 }
 
 async function resolveBinaryPath(binary: string): Promise<string> {
-  const { execFileSync } = await import("node:child_process");
+  const { execSync } = await import("node:child_process");
   const cmd = process.platform === "win32" ? "where" : "which";
   try {
-    const output = execFileSync(cmd, [binary], { encoding: "utf8" }).trim();
+    const output = execSync(`${cmd} ${binary}`, { encoding: "utf8" }).trim();
     const resolved = output.split(/\r?\n/)[0]?.trim();
     if (!resolved) {
       throw new Error("empty");
@@ -172,6 +182,7 @@ async function resolveCliProgramArguments(params: {
     const cliEntrypointPath = await resolveCliEntrypointPathForService();
     return {
       programArguments: [nodePath, cliEntrypointPath, ...params.args],
+      workingDirectory: STATE_DIR,
     };
   }
 
@@ -191,6 +202,7 @@ async function resolveCliProgramArguments(params: {
     const cliEntrypointPath = await resolveCliEntrypointPathForService();
     return {
       programArguments: [bunPath, cliEntrypointPath, ...params.args],
+      workingDirectory: STATE_DIR,
     };
   }
 
@@ -199,11 +211,12 @@ async function resolveCliProgramArguments(params: {
       const cliEntrypointPath = await resolveCliEntrypointPathForService();
       return {
         programArguments: [execPath, cliEntrypointPath, ...params.args],
+        workingDirectory: STATE_DIR,
       };
     } catch (error) {
       // If running under bun or another runtime that can execute TS directly
       if (!isNodeRuntime(execPath)) {
-        return { programArguments: [execPath, ...params.args] };
+        return { programArguments: [execPath, ...params.args], workingDirectory: STATE_DIR };
       }
       throw error;
     }

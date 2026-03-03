@@ -53,6 +53,7 @@ function fakeApi(overrides: Partial<OpenClawPluginApi> = {}): OpenClawPluginApi 
     registerCommand() {},
     on() {},
     resolvePath: (p) => p,
+    dataDir: "/tmp/test-plugins/lobster",
     ...overrides,
   };
 }

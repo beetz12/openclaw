@@ -62,6 +62,7 @@ function setup(config: Record<string, unknown>): Registered {
     registerCli: () => {},
     registerService: () => {},
     resolvePath: (p: string) => p,
+    dataDir: "/tmp/test-plugins/voice-call",
   } as unknown as Parameters<typeof plugin.register>[0]);
   return { methods, tools };
 }
@@ -91,6 +92,7 @@ async function registerVoiceCallCli(program: Command) {
       }),
     registerService: () => {},
     resolvePath: (p: string) => p,
+    dataDir: "/tmp/test-plugins/voice-call",
   });
 }
 

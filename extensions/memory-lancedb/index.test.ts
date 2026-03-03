@@ -349,6 +349,7 @@ describeLive("memory plugin live tests", () => {
         registeredHooks[hookName].push(handler);
       },
       resolvePath: (p: string) => p,
+      dataDir: "/tmp/test-plugins/memory-lancedb",
     };
 
     // Register plugin

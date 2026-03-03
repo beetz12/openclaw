@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { ApprovalDB } from "./db.js";
 import { createDeliveryHandler } from "./delivery.js";
@@ -19,7 +20,9 @@ export default {
 
   register(api: OpenClawPluginApi) {
     const pluginCfg = (api.pluginConfig ?? {}) as VwpApprovalPluginConfig;
-    const dbPath = api.resolvePath(pluginCfg.dbPath ?? "vwp-approval.sqlite");
+    const dbPath = pluginCfg.dbPath
+      ? api.resolvePath(pluginCfg.dbPath)
+      : path.join(api.dataDir, "vwp-approval.sqlite");
     const db = new ApprovalDB(dbPath);
     const sse = getSharedSSE();
 

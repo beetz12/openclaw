@@ -291,6 +291,12 @@ export type OpenClawPluginApi = {
     factory: import("../context-engine/registry.js").ContextEngineFactory,
   ) => void;
   resolvePath: (input: string) => string;
+  /**
+   * Per-plugin data directory under STATE_DIR (e.g. ~/.openclaw/plugins/{plugin-id}/).
+   * Use for storing plugin-specific databases, caches, and state files.
+   * The directory is NOT automatically created; plugins should mkdir as needed.
+   */
+  dataDir: string;
   /** Register a lifecycle hook handler */
   on: <K extends PluginHookName>(
     hookName: K,
