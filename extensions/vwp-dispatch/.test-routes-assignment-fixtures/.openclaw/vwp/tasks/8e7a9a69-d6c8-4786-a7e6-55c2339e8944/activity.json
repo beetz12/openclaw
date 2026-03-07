@@ -1,0 +1,10 @@
+[
+  {
+    "id": "ed9a72fb-baf4-496c-904e-d10a1c467202",
+    "taskId": "8e7a9a69-d6c8-4786-a7e6-55c2339e8944",
+    "timestamp": 1772543999419,
+    "type": "status_change",
+    "action": "task_created",
+    "detail": "Task queued (medium) — Create marketing SEO plan"
+  }
+]

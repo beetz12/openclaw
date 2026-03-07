@@ -1,16 +1,16 @@
 {
   "columns": {
     "backlog": [],
-    "todo": ["99d4cca8-0afa-4098-8928-98c5960ba55a"],
+    "todo": ["8e7a9a69-d6c8-4786-a7e6-55c2339e8944"],
     "in_progress": [],
     "review": [],
     "done": []
   },
   "positions": {
-    "99d4cca8-0afa-4098-8928-98c5960ba55a": {
+    "8e7a9a69-d6c8-4786-a7e6-55c2339e8944": {
       "column": "todo",
       "position": 0
     }
   },
-  "updatedAt": 1771908278969
+  "updatedAt": 1772543999418
 }
