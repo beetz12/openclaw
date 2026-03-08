@@ -314,7 +314,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     const source = entry.source?.trim() || "unknown-source";
     return `${plugin} (${source})`;
   };
-
   const registerHttpRoute = (record: PluginRecord, params: OpenClawPluginHttpRouteParams) => {
     const normalizedPath = normalizePluginHttpPath(params.path);
     if (!normalizedPath) {
@@ -593,7 +592,7 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       registerTool: (tool, opts) => registerTool(record, tool, opts),
       registerHook: (events, handler, opts) =>
         registerHook(record, events, handler, opts, params.config),
-      registerHttpRoute: (params) => registerHttpRoute(record, params),
+      registerHttpRoute: (routeParams) => registerHttpRoute(record, routeParams),
       registerChannel: (registration) => registerChannel(record, registration),
       registerProvider: (provider) => registerProvider(record, provider),
       registerGatewayMethod: (method, handler) => registerGatewayMethod(record, method, handler),
