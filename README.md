@@ -342,6 +342,54 @@ cd apps/vwp-board && pnpm test:e2e           # Board E2E tests
 
 ---
 
+## Beads Workflow
+
+This project uses [Beads](https://github.com/steveyegge/beads) (`bd`) for persistent issue tracking and cross-session memory.
+
+### Quick Start
+
+```bash
+bd ready              # See what's ready to work on
+bd show <id>          # View full task details
+bd update <id> --claim  # Claim a task before starting
+bd close <id>         # Close when done
+bd sync               # Persist to git
+```
+
+### Available Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| **Plan a Feature** | `/feature-to-beads` | Analyze requirements, draft implementation plan, save as epic with linked tasks |
+| **Execute Next Task** | `/beads-execute` | Pick up highest-priority ready task, execute via agent team, verify, close |
+| **Save Session Context** | `/session-to-beads` | Capture remaining work, bugs, and decisions before ending session |
+| **Project Setup** | `/beads-project-setup` | Initialize Beads in a new project |
+
+### Workflow
+
+```text
+  /feature-to-beads  -> plan a feature into TASKS.md and Beads issues
+  /beads-execute     -> work the next ready issue
+  /session-to-beads  -> persist remaining context before ending a session
+```
+
+### Key Commands
+
+| Command | What It Does |
+|---------|-------------|
+| `bd ready --json` | List unblocked tasks by priority |
+| `bd show <id>` | Full task details with dependencies |
+| `bd create "title" -t task -p 2 -d "desc" --json` | Create a new task |
+| `bd update <id> --claim` | Atomically assign + mark in-progress |
+| `bd close <id> --reason "done"` | Complete a task |
+| `bd dep add <child> <parent>` | Link a dependency |
+| `bd epic <id>` | View an epic and its tasks |
+| `bd search "query"` | Full-text search across all issues |
+| `bd doctor` | Health check |
+| `bd sync` | Sync Beads state |
+
+---
+
 ## Acknowledgments
 
 NexClaw is built on the extraordinary work of the [OpenClaw](https://github.com/openclaw/openclaw) project and its contributors. We are grateful for the foundation that makes this possible.
