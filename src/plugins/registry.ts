@@ -2,6 +2,7 @@ import path from "node:path";
 import type { AnyAgentTool } from "../agents/tools/common.js";
 import type { ChannelDock } from "../channels/dock.js";
 import type { ChannelPlugin } from "../channels/plugins/types.js";
+import { registerContextEngine as registerContextEngineImpl } from "../context-engine/registry.js";
 import type {
   GatewayRequestHandler,
   GatewayRequestHandlers,
@@ -17,8 +18,8 @@ import type {
   OpenClawPluginChannelRegistration,
   OpenClawPluginCliRegistrar,
   OpenClawPluginCommandDefinition,
-  OpenClawPluginHttpHandler,
   OpenClawPluginHttpRouteHandler,
+  OpenClawPluginHttpRouteParams,
   OpenClawPluginHookOptions,
   ProviderPlugin,
   OpenClawPluginService,
@@ -49,9 +50,15 @@ export type PluginCliRegistration = {
   source: string;
 };
 
+/** @deprecated Legacy catch-all HTTP handler type; kept for backward compat. */
+type PluginHttpHandler = (
+  req: import("node:http").IncomingMessage,
+  res: import("node:http").ServerResponse,
+) => Promise<boolean | void> | boolean | void;
+
 export type PluginHttpRegistration = {
   pluginId: string;
-  handler: OpenClawPluginHttpHandler;
+  handler: PluginHttpHandler;
   source: string;
 };
 
@@ -59,6 +66,8 @@ export type PluginHttpRouteRegistration = {
   pluginId?: string;
   path: string;
   handler: OpenClawPluginHttpRouteHandler;
+  auth?: import("./types.js").OpenClawPluginHttpRouteAuth;
+  match?: import("./types.js").OpenClawPluginHttpRouteMatch;
   source?: string;
 };
 
@@ -288,19 +297,7 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     record.gatewayMethods.push(trimmed);
   };
 
-  const registerHttpHandler = (record: PluginRecord, handler: OpenClawPluginHttpHandler) => {
-    record.httpHandlers += 1;
-    registry.httpHandlers.push({
-      pluginId: record.id,
-      handler,
-      source: record.source,
-    });
-  };
-
-  const registerHttpRoute = (
-    record: PluginRecord,
-    params: { path: string; handler: OpenClawPluginHttpRouteHandler },
-  ) => {
+  const registerHttpRoute = (record: PluginRecord, params: OpenClawPluginHttpRouteParams) => {
     const normalizedPath = normalizePluginHttpPath(params.path);
     if (!normalizedPath) {
       pushDiagnostic({
@@ -311,7 +308,10 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       });
       return;
     }
-    if (registry.httpRoutes.some((entry) => entry.path === normalizedPath)) {
+    if (
+      !params.replaceExisting &&
+      registry.httpRoutes.some((entry) => entry.path === normalizedPath)
+    ) {
       pushDiagnostic({
         level: "error",
         pluginId: record.id,
@@ -325,6 +325,8 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       pluginId: record.id,
       path: normalizedPath,
       handler: params.handler,
+      auth: params.auth,
+      match: params.match,
       source: record.source,
     });
   };
@@ -489,14 +491,14 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       registerTool: (tool, opts) => registerTool(record, tool, opts),
       registerHook: (events, handler, opts) =>
         registerHook(record, events, handler, opts, params.config),
-      registerHttpHandler: (handler) => registerHttpHandler(record, handler),
-      registerHttpRoute: (params) => registerHttpRoute(record, params),
+      registerHttpRoute: (routeParams) => registerHttpRoute(record, routeParams),
       registerChannel: (registration) => registerChannel(record, registration),
       registerProvider: (provider) => registerProvider(record, provider),
       registerGatewayMethod: (method, handler) => registerGatewayMethod(record, method, handler),
       registerCli: (registrar, opts) => registerCli(record, registrar, opts),
       registerService: (service) => registerService(record, service),
       registerCommand: (command) => registerCommand(record, command),
+      registerContextEngine: (id, factory) => registerContextEngineImpl(id, factory),
       resolvePath: (input: string) => resolvePluginPath(input),
       dataDir: resolvePluginDataDir(record.id),
       on: (hookName, handler, opts) => registerTypedHook(record, hookName, handler, opts),

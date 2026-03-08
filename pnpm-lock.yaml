@@ -136,6 +136,9 @@ importers:
       linkedom:
         specifier: ^0.18.12
         version: 0.18.12
+      long:
+        specifier: ^5.3.2
+        version: 5.3.2
       markdown-it:
         specifier: ^14.1.1
         version: 14.1.1
@@ -13913,7 +13916,7 @@ snapshots:
       sleep-promise: 9.1.0
       slice-ansi: 7.1.2
       stdout-update: 4.0.1
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
     optionalDependencies:
       '@reflink/reflink': 0.1.19
 
@@ -13949,7 +13952,7 @@ snapshots:
 
   is-fullwidth-code-point@5.1.0:
     dependencies:
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.5.0
 
   is-hexadecimal@2.0.1: {}
 
@@ -14837,7 +14840,7 @@ snapshots:
       simple-git: 3.31.1
       slice-ansi: 8.0.0
       stdout-update: 4.0.1
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
       validate-npm-package-name: 7.0.2
       which: 6.0.1
       yargs: 17.7.2
@@ -16092,7 +16095,7 @@ snapshots:
       ansi-escapes: 6.2.1
       ansi-styles: 6.2.3
       string-width: 7.2.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   stealthy-require@1.1.1: {}
 
@@ -16126,13 +16129,13 @@ snapshots:
   string-width@7.2.0:
     dependencies:
       emoji-regex: 10.6.0
-      get-east-asian-width: 1.4.0
-      strip-ansi: 7.1.2
+      get-east-asian-width: 1.5.0
+      strip-ansi: 7.2.0
 
   string-width@8.2.0:
     dependencies:
       get-east-asian-width: 1.5.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   string_decoder@1.1.1:
     dependencies:

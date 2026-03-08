@@ -278,7 +278,7 @@ function createPluginRecord(params: {
     cliCommands: [],
     services: [],
     commands: [],
-    httpRoutes: 0,
+    httpHandlers: 0,
     hookCount: 0,
     configSchema: params.configSchema,
     configUiHints: undefined,
@@ -802,7 +802,6 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
     const api = createApi(record, {
       config: cfg,
       pluginConfig: validatedConfig.value,
-      hookPolicy: entry?.hooks,
     });
 
     try {

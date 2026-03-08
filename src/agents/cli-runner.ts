@@ -1,8 +1,7 @@
 import type { ImageContent } from "@mariozechner/pi-ai";
+import { resolveHeartbeatPrompt } from "../auto-reply/heartbeat.js";
 import type { ThinkLevel } from "../auto-reply/thinking.js";
 import type { OpenClawConfig } from "../config/config.js";
-import type { EmbeddedPiRunResult } from "./pi-embedded-runner.js";
-import { resolveHeartbeatPrompt } from "../auto-reply/heartbeat.js";
 import { shouldLogVerbose } from "../globals.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
@@ -14,8 +13,6 @@ import {
   appendImagePathsToPrompt,
   buildCliArgs,
   buildSystemPrompt,
-  cleanupResumeProcesses,
-  cleanupSuspendedCliProcesses,
   enqueueCliRun,
   normalizeCliModel,
   parseCliJson,
@@ -28,6 +25,7 @@ import {
 import { resolveOpenClawDocsPath } from "./docs-path.js";
 import { FailoverError, resolveFailoverStatus } from "./failover-error.js";
 import { classifyFailoverReason, isFailoverErrorMessage } from "./pi-embedded-helpers.js";
+import type { EmbeddedPiRunResult } from "./pi-embedded-runner.js";
 import { redactRunIdentifier, resolveRunWorkspaceDir } from "./workspace-run.js";
 
 const log = createSubsystemLogger("agent/claude-cli");
@@ -49,6 +47,8 @@ export async function runCliAgent(params: {
   streamParams?: import("../commands/agent/types.js").AgentStreamParams;
   ownerNumbers?: string[];
   cliSessionId?: string;
+  bootstrapPromptWarningSignaturesSeen?: string[];
+  bootstrapPromptWarningSignature?: string;
   images?: ImageContent[];
   lane?: string;
 }): Promise<EmbeddedPiRunResult> {
@@ -235,12 +235,6 @@ export async function runCliAgent(params: {
         }
         return next;
       })();
-
-      // Cleanup suspended processes that have accumulated (regardless of sessionId)
-      await cleanupSuspendedCliProcesses(backend);
-      if (useResume && cliSessionIdToSend) {
-        await cleanupResumeProcesses(backend, cliSessionIdToSend);
-      }
 
       const result = await runCommandWithTimeout([backend.command, ...args], {
         timeoutMs: params.timeoutMs,
