@@ -1,5 +1,6 @@
 import { readdir, readFile, stat, watch } from "node:fs/promises";
-import { join, resolve, basename, dirname } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,33 @@ export type PluginEntry = {
   skills: Map<string, SkillEntry>;
   mcpIntegrations: Record<string, McpServerEntry>;
 };
+
+const IGNORED_ROOT_ENTRIES = new Set([
+  ".git",
+  ".github",
+  ".next",
+  ".openclaw",
+  ".playwright-mcp",
+  ".vscode",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "playwright-report",
+  "test-results",
+]);
+
+const IGNORED_PREFIXES = [".", "_"];
+const DEFAULT_PLUGINS_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../knowledge-work-plugins",
+);
+
+function shouldIgnoreRootEntry(entry: string): boolean {
+  return (
+    IGNORED_ROOT_ENTRIES.has(entry) || IGNORED_PREFIXES.some((prefix) => entry.startsWith(prefix))
+  );
+}
 
 // ── Frontmatter parser ──────────────────────────────────────────────────────
 
@@ -88,10 +116,12 @@ export class SkillRegistry {
   private plugins = new Map<string, PluginEntry>();
   private scanned = false;
   private abortController: AbortController | null = null;
+  private rescanTimer: ReturnType<typeof setTimeout> | null = null;
+  private watchDisabled = false;
 
   constructor(pluginsPath?: string) {
     this.pluginsPath = resolve(
-      pluginsPath ?? process.env.VWP_KNOWLEDGE_PLUGINS_PATH ?? "./knowledge-work-plugins",
+      pluginsPath ?? process.env.VWP_KNOWLEDGE_PLUGINS_PATH ?? DEFAULT_PLUGINS_PATH,
     );
   }
 
@@ -110,6 +140,9 @@ export class SkillRegistry {
     }
 
     for (const entry of entries) {
+      if (shouldIgnoreRootEntry(entry)) {
+        continue;
+      }
       const pluginDir = join(this.pluginsPath, entry);
       try {
         const s = await stat(pluginDir);
@@ -134,32 +167,30 @@ export class SkillRegistry {
 
   /** Start watching the plugins directory for changes and auto-rescan. */
   watchForChanges(): void {
+    if (this.watchDisabled) {
+      return;
+    }
     this.stopWatching();
     this.abortController = new AbortController();
     const { signal } = this.abortController;
-
-    (async () => {
-      try {
-        const watcher = watch(this.pluginsPath, {
-          recursive: true,
-          signal,
-        });
-        for await (const _event of watcher) {
-          // Debounce: wait a bit then rescan
-          await new Promise((r) => setTimeout(r, 500));
-          await this.scan();
-        }
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        console.warn(`[skill-registry] Watch error:`, err);
-      }
-    })();
+    const watchPaths = this.buildWatchPaths();
+    for (const watchPath of watchPaths) {
+      void this.watchPath(watchPath, signal);
+    }
   }
 
   /** Stop watching for directory changes. */
   stopWatching(): void {
+    if (this.rescanTimer) {
+      clearTimeout(this.rescanTimer);
+      this.rescanTimer = null;
+    }
     this.abortController?.abort();
     this.abortController = null;
+  }
+
+  getPluginsPath(): string {
+    return this.pluginsPath;
   }
 
   /** Get a specific skill by plugin name and skill name. */
@@ -213,6 +244,80 @@ export class SkillRegistry {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────
+
+  private buildWatchPaths(): string[] {
+    const watchPaths = new Set<string>([this.pluginsPath]);
+    for (const pluginKey of this.plugins.keys()) {
+      const pluginDir = join(this.pluginsPath, pluginKey);
+      watchPaths.add(pluginDir);
+      watchPaths.add(join(pluginDir, ".claude-plugin"));
+      watchPaths.add(join(pluginDir, "skills"));
+      const plugin = this.plugins.get(pluginKey);
+      if (!plugin) {
+        continue;
+      }
+      for (const skillKey of plugin.skills.keys()) {
+        watchPaths.add(join(pluginDir, "skills", skillKey));
+      }
+    }
+    return Array.from(watchPaths);
+  }
+
+  private async watchPath(pathToWatch: string, signal: AbortSignal): Promise<void> {
+    try {
+      const watcher = watch(pathToWatch, { signal });
+      for await (const _event of watcher) {
+        this.scheduleRescan();
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "ENOENT") {
+        return;
+      }
+      if (code === "EMFILE" || code === "ENOSPC") {
+        this.disableWatching(
+          `live skill watching disabled for ${this.pluginsPath}: ${code} while watching ${pathToWatch}`,
+        );
+        return;
+      }
+      console.warn(`[skill-registry] Watch error (${pathToWatch}):`, err);
+    }
+  }
+
+  private scheduleRescan(): void {
+    if (this.rescanTimer || this.watchDisabled) {
+      return;
+    }
+    this.rescanTimer = setTimeout(() => {
+      this.rescanTimer = null;
+      void this.rescanAndRefreshWatchers();
+    }, 300);
+  }
+
+  private async rescanAndRefreshWatchers(): Promise<void> {
+    if (this.watchDisabled) {
+      return;
+    }
+    try {
+      await this.scan();
+    } catch (err) {
+      console.warn(`[skill-registry] Rescan failed:`, err);
+      return;
+    }
+    this.watchForChanges();
+  }
+
+  private disableWatching(message: string): void {
+    if (this.watchDisabled) {
+      return;
+    }
+    this.watchDisabled = true;
+    this.stopWatching();
+    console.warn(`[skill-registry] ${message}`);
+  }
 
   private async indexPlugin(pluginDir: string, dirName: string): Promise<PluginEntry | null> {
     // Read plugin manifest

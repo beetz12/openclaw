@@ -5,14 +5,10 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { atomicWriteFile } from "./atomic-write.js";
 import type { BoardState, KanbanColumnId } from "./kanban-types.js";
 import { KANBAN_COLUMNS } from "./kanban-types.js";
-
-const BOARD_DIR = join(homedir(), ".openclaw", "vwp", "board");
-const STATE_FILE = join(BOARD_DIR, "state.json");
+import { resolveVwpPath } from "./paths.js";
 
 function emptyBoard(): BoardState {
   return {
@@ -30,7 +26,7 @@ function emptyBoard(): BoardState {
 
 export async function loadBoard(): Promise<BoardState> {
   try {
-    const raw = await readFile(STATE_FILE, "utf-8");
+    const raw = await readFile(resolveVwpPath("board", "state.json"), "utf-8");
     return JSON.parse(raw) as BoardState;
   } catch {
     return emptyBoard();
@@ -38,7 +34,7 @@ export async function loadBoard(): Promise<BoardState> {
 }
 
 async function saveBoard(state: BoardState): Promise<void> {
-  await atomicWriteFile(STATE_FILE, JSON.stringify(state, null, 2));
+  await atomicWriteFile(resolveVwpPath("board", "state.json"), JSON.stringify(state, null, 2));
 }
 
 export async function initializeBoard(): Promise<BoardState> {

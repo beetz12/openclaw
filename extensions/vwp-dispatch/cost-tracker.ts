@@ -6,8 +6,8 @@
  */
 
 import { readdir, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVwpTasksDir } from "./paths.js";
 
 interface TaskFinal {
   costUsd?: number;
@@ -25,7 +25,7 @@ interface TaskFinal {
  * @returns Total USD spent this month
  */
 export async function getMonthlySpend(tasksDir?: string): Promise<number> {
-  const dir = tasksDir ?? join(homedir(), ".openclaw", "vwp", "tasks");
+  const dir = tasksDir ?? getVwpTasksDir();
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 

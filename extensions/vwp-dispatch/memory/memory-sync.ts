@@ -7,16 +7,14 @@
  */
 
 import { readFile, access } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { atomicWriteFile } from "../atomic-write.js";
+import { getVwpTasksDir } from "../paths.js";
 import type { MemoryClient, TaskOutcome, LearnedPattern } from "./notebooklm-client.js";
-
-const TASKS_DIR = join(homedir(), ".openclaw", "vwp", "tasks");
 const SYNC_MARKER = "synced-to-memory.json";
 
 function taskDir(taskId: string): string {
-  return join(TASKS_DIR, taskId);
+  return join(getVwpTasksDir(), taskId);
 }
 
 async function fileExists(path: string): Promise<boolean> {

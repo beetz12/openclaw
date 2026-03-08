@@ -8,6 +8,7 @@ import {
   isTrustedProxyAddress,
   pickPrimaryLanIPv4,
   resolveClientIp,
+  resolveGatewayBindHost,
   resolveGatewayListenHosts,
   resolveHostName,
 } from "./net.js";
@@ -265,6 +266,12 @@ describe("resolveGatewayListenHosts", () => {
       });
       expect(hosts, testCase.name).toEqual(testCase.expected);
     }
+  });
+});
+
+describe("resolveGatewayBindHost", () => {
+  it("keeps explicit loopback mode pinned to 127.0.0.1", async () => {
+    await expect(resolveGatewayBindHost("loopback")).resolves.toBe("127.0.0.1");
   });
 });
 

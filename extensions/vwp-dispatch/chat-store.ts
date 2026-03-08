@@ -6,18 +6,16 @@
  */
 
 import { appendFile, mkdir, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
-import lockfile from "proper-lockfile";
 import type { ChatMessage } from "./kanban-types.js";
-
-const DEFAULT_BASE_PATH = join(homedir(), ".openclaw", "vwp", "chat");
+import { resolveVwpPath } from "./paths.js";
 
 export class ServerChatStore {
   private basePath: string;
+  private writeTails = new Map<string, Promise<void>>();
 
   constructor(basePath?: string) {
-    this.basePath = basePath ?? DEFAULT_BASE_PATH;
+    this.basePath = basePath ?? resolveVwpPath("chat");
   }
 
   /**
@@ -31,23 +29,30 @@ export class ServerChatStore {
     const filePath = join(dir, "messages.jsonl");
     const line = JSON.stringify(msg) + "\n";
 
-    // Write an empty file first if it doesn't exist (lockfile needs a file to lock)
-    try {
-      await readFile(filePath);
-    } catch {
-      await appendFile(filePath, "");
-    }
+    const previous = this.writeTails.get(filePath) ?? Promise.resolve();
+    const current = previous
+      .catch(() => undefined)
+      .then(async () => {
+        // Ensure the file exists before appending.
+        try {
+          await readFile(filePath);
+        } catch {
+          await appendFile(filePath, "");
+        }
 
-    let release: (() => Promise<void>) | undefined;
-    try {
-      release = await lockfile.lock(filePath, {
-        retries: { retries: 3, minTimeout: 50, maxTimeout: 300 },
-        stale: 5000,
+        await appendFile(filePath, line);
       });
-      await appendFile(filePath, line);
-    } finally {
-      if (release) await release();
-    }
+    const tail = current.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.writeTails.set(filePath, tail);
+    void tail.finally(() => {
+      if (this.writeTails.get(filePath) === tail) {
+        this.writeTails.delete(filePath);
+      }
+    });
+    await current;
   }
 
   /**

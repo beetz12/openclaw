@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { resolveVwpPath } from "./paths.js";
 import type { TaskAssignmentProfile } from "./types.js";
 
 export interface WorkforceAgent {
@@ -118,7 +117,7 @@ export function pickBestAgent(
 }
 
 export async function loadWorkforceAgents(
-  teamConfigPath = join(homedir(), ".openclaw", "vwp", "team.json"),
+  teamConfigPath = resolveVwpPath("team.json"),
 ): Promise<WorkforceAgent[]> {
   try {
     const raw = await readFile(teamConfigPath, "utf-8");

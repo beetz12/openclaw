@@ -8,18 +8,16 @@
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ApprovalSSE } from "../vwp-approval/sse.js";
 import type { AgentStateManager } from "./agent-state.js";
 import { buildAgentInvocation } from "./cli-provider.js";
 import { generateSkillSummary } from "./context-loader.js";
+import { getVwpTasksDir } from "./paths.js";
 import { buildSafeEnv } from "./safe-env.js";
 import type { SkillRegistry } from "./skill-registry.js";
 import { TeamMonitor } from "./team-monitor.js";
 import type { TeamSpec } from "./types.js";
-
-const TASKS_BASE = join(homedir(), ".openclaw", "vwp", "tasks");
 
 export type LaunchOptions = {
   /** Working directory for the Claude CLI subprocess. */
@@ -72,7 +70,7 @@ export async function launchTeam(
 ): Promise<TeamHandle> {
   const { runCommandWithTimeout } = await import("../../src/process/exec.js");
 
-  const taskDir = join(TASKS_BASE, taskId);
+  const taskDir = join(getVwpTasksDir(), taskId);
   const promptsDir = join(taskDir, "prompts");
   const resultsDir = join(taskDir, "results");
   const checkpointsDir = join(taskDir, "checkpoints");

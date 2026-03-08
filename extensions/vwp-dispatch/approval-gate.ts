@@ -11,11 +11,9 @@
  */
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ApprovalSSE } from "../vwp-approval/sse.js";
-
-const TASKS_BASE = join(homedir(), ".openclaw", "vwp", "tasks");
+import { getVwpTasksDir } from "./paths.js";
 
 export interface PendingAction {
   actionId: string;
@@ -41,7 +39,7 @@ export class ApprovalGate {
 
   constructor(taskId: string, sse?: ApprovalSSE) {
     this.taskId = taskId;
-    this.taskDir = join(TASKS_BASE, taskId);
+    this.taskDir = join(getVwpTasksDir(), taskId);
     this.pendingDir = join(this.taskDir, "pending-actions");
     this.sse = sse;
   }

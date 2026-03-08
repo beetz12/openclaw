@@ -1,12 +1,22 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { createSubsystemLogger } from "../../logging/subsystem.js";
 import type { PluginRegistry } from "../../plugins/registry.js";
+import type { PluginRoutePathContext } from "./plugins-http/path-context.js";
+import { findMatchingPluginHttpRoutes } from "./plugins-http/route-match.js";
+
+export {
+  isProtectedPluginRoutePathFromContext,
+  resolvePluginRoutePathContext,
+} from "./plugins-http/path-context.js";
+export { shouldEnforceGatewayAuthForPluginPath } from "./plugins-http/route-auth.js";
+export type { PluginRoutePathContext } from "./plugins-http/path-context.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 
 export type PluginHttpRequestHandler = (
   req: IncomingMessage,
   res: ServerResponse,
+  pathContext?: PluginRoutePathContext,
 ) => Promise<boolean>;
 
 export function createGatewayPluginRequestHandler(params: {
@@ -14,7 +24,7 @@ export function createGatewayPluginRequestHandler(params: {
   log: SubsystemLogger;
 }): PluginHttpRequestHandler {
   const { registry, log } = params;
-  return async (req, res) => {
+  return async (req, res, pathContext) => {
     const routes = registry.httpRoutes ?? [];
     const handlers = registry.httpHandlers ?? [];
     if (routes.length === 0 && handlers.length === 0) {
@@ -39,7 +49,9 @@ export function createGatewayPluginRequestHandler(params: {
 
     if (routes.length > 0) {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const route = routes.find((entry) => entry.path === url.pathname);
+      const route =
+        (pathContext ? findMatchingPluginHttpRoutes(registry, pathContext) : [])[0] ??
+        routes.find((entry) => entry.path === url.pathname);
       if (route) {
         try {
           await route.handler(req, res);

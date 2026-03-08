@@ -15,9 +15,9 @@
  */
 
 import { access, readFile, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { atomicWriteFile } from "./atomic-write.js";
+import { getVwpTasksDir } from "./paths.js";
 import type {
   DispatchResult,
   SubtaskResult,
@@ -26,10 +26,8 @@ import type {
   TaskRequest,
 } from "./types.js";
 
-const TASKS_DIR = join(homedir(), ".openclaw", "vwp", "tasks");
-
 function taskDir(taskId: string): string {
-  return join(TASKS_DIR, taskId);
+  return join(getVwpTasksDir(), taskId);
 }
 
 function defaultAssignmentProfile(): TaskAssignmentProfile {
@@ -143,7 +141,7 @@ export async function getTask(taskId: string): Promise<{
 
 export async function listTasks(): Promise<string[]> {
   try {
-    return await readdir(TASKS_DIR);
+    return await readdir(getVwpTasksDir());
   } catch {
     return [];
   }

@@ -8,7 +8,6 @@
 import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { getSharedSSE } from "../vwp-approval/sse.js";
 import type { AgentStateManager } from "./agent-state.js";
@@ -16,6 +15,7 @@ import * as boardState from "./board-state.js";
 import * as checkpoint from "./checkpoint.js";
 import type { KanbanColumnId, ActivityEntry, KanbanSSEEvent } from "./kanban-types.js";
 import { KANBAN_COLUMNS } from "./kanban-types.js";
+import { getVwpTasksDir } from "./paths.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
@@ -299,7 +299,7 @@ export function createKanbanHttpHandler(deps: KanbanRoutesDeps) {
       if (!checkAuth(req, res)) return true;
       const taskId = activityMatch[1];
 
-      const activityFile = join(homedir(), ".openclaw", "vwp", "tasks", taskId, "activity.json");
+      const activityFile = join(getVwpTasksDir(), taskId, "activity.json");
 
       let entries: ActivityEntry[] = [];
       try {

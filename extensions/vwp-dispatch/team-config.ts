@@ -9,17 +9,24 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { VwpConfigStore } from "./config-store.js";
+import { resolveVwpPath } from "./paths.js";
 import { TeamMemberSchema, TeamConfigSchema, type TeamConfig } from "./team-types.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
-const VWP_DIR = join(homedir(), ".openclaw", "vwp");
-const TEAM_FILE = join(VWP_DIR, "team.json");
-const ONBOARDING_FILE = join(VWP_DIR, "onboarding.json");
-const STATE_DB = join(VWP_DIR, "state.sqlite");
+
+function getTeamFile(): string {
+  return resolveVwpPath("team.json");
+}
+
+function getOnboardingFile(): string {
+  return resolveVwpPath("onboarding.json");
+}
+
+function getStateDbPath(): string {
+  return resolveVwpPath("state.sqlite");
+}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -55,9 +62,9 @@ export function createTeamHttpHandler(
   paths?: { teamFilePath?: string; onboardingFilePath?: string; dbPath?: string },
 ) {
   const { gatewayToken } = deps;
-  const teamFilePath = paths?.teamFilePath ?? TEAM_FILE;
-  const onboardingFilePath = paths?.onboardingFilePath ?? ONBOARDING_FILE;
-  const dbPath = paths?.dbPath ?? STATE_DB;
+  const teamFilePath = paths?.teamFilePath ?? getTeamFile();
+  const onboardingFilePath = paths?.onboardingFilePath ?? getOnboardingFile();
+  const dbPath = paths?.dbPath ?? getStateDbPath();
   const store =
     deps.store ??
     new VwpConfigStore(dbPath, { onboardingFile: onboardingFilePath, teamFile: teamFilePath });

@@ -4,6 +4,22 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "autoApprovePatterns": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "requireApproval": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        ]
+      },
+      "dbPath": { "type": "string" }
+    }
   }
 }

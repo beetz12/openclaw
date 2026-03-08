@@ -6,8 +6,8 @@
  */
 
 import { readdir, readFile, rm, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVwpTasksDir } from "./paths.js";
 
 interface TaskFinal {
   completedAt?: number;
@@ -40,7 +40,7 @@ export interface CleanupResult {
  */
 export async function cleanupOldTasks(options: CleanupOptions = {}): Promise<CleanupResult> {
   const maxAgeDays = options.maxAgeDays ?? 90;
-  const tasksDir = options.tasksDir ?? join(homedir(), ".openclaw", "vwp", "tasks");
+  const tasksDir = options.tasksDir ?? getVwpTasksDir();
 
   const cutoffTime = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
   const deleted: string[] = [];

@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { getSharedSSE } from "../vwp-approval/sse.js";
 import { AgentStateManager } from "./agent-state.js";
 import { analyzeTask } from "./analyzer.js";
+import { loadWorkforceAgents, pickBestAgent } from "./assignment-engine.js";
 import { moveTask } from "./board-state.js";
 import { checkBudget } from "./budget.js";
 import { createChatHttpHandler } from "./chat-routes.js";
-import { createCronHttpHandler } from "./cron-routes.js";
 import { ServerChatStore } from "./chat-store.js";
 import * as checkpoint from "./checkpoint.js";
 import { checkCliHealth } from "./cli-health-check.js";
@@ -16,16 +17,16 @@ import { VwpConfigStore } from "./config-store.js";
 import { loadBusinessContext, loadProfile } from "./context-loader.js";
 import { getMonthlySpend } from "./cost-tracker.js";
 import { createCoworkHttpHandler } from "./cowork-routes.js";
-import { createUsageHttpHandler } from "./usage-routes.js";
+import { createCronHttpHandler } from "./cron-routes.js";
 import { GatewayClient } from "./gateway-client.js";
 import { HealthMonitor } from "./health-monitor.js";
 import { createKanbanHttpHandler } from "./kanban-routes.js";
 import { createMemoryClient, MemorySync } from "./memory/index.js";
 import { enrichDecomposition, formatEnrichmentPrompt } from "./memory/index.js";
 import { createOnboardingHttpHandler } from "./onboarding.js";
+import { resolveVwpPath, setVwpBaseDir } from "./paths.js";
 import { createProjectHttpHandler, loadProjects } from "./project-registry.js";
 import { createDispatchHttpHandler } from "./routes.js";
-import { loadWorkforceAgents, pickBestAgent } from "./assignment-engine.js";
 import { ShutdownManager } from "./shutdown.js";
 import { matchSkills } from "./skill-matcher.js";
 import { SkillRegistry } from "./skill-registry.js";
@@ -38,6 +39,7 @@ import { discoverTools, type LoadedTool } from "./tool-manifest.js";
 import { createToolHttpHandler } from "./tool-routes.js";
 import { ToolRunner } from "./tool-runner.js";
 import type { TaskRequest } from "./types.js";
+import { createUsageHttpHandler } from "./usage-routes.js";
 
 // Re-export public types for consumers.
 export { SkillRegistry } from "./skill-registry.js";
@@ -54,6 +56,8 @@ export type { BusinessProfile, BusinessContext, RoleConfig } from "./context-loa
 type VwpDispatchPluginConfig = {
   enabled?: boolean;
   pluginsPath?: string;
+  toolsPath?: string;
+  baseDir?: string;
   /** CLI provider for dispatch (e.g. "claude-cli", "codex-cli", "gemini-cli"). */
   provider?: string;
   /** Model for task analysis (default: "sonnet"). */
@@ -66,10 +70,73 @@ type VwpDispatchPluginConfig = {
   monthlyMaxUsd?: number;
 };
 
+const DISPATCH_EXTENSION_DIR = dirname(fileURLToPath(import.meta.url));
+const DISPATCH_REPO_ROOT = resolve(DISPATCH_EXTENSION_DIR, "../..");
+const DEFAULT_TOOLS_PATH = join(DISPATCH_REPO_ROOT, "tools");
+
+function resolveToolsPath(toolsPath?: string): string {
+  return resolve(toolsPath ?? process.env.VWP_TOOLS_PATH ?? DEFAULT_TOOLS_PATH);
+}
+
+const vwpDispatchConfigSchema = {
+  validate(value: unknown) {
+    if (value === undefined || value === null) {
+      return { ok: true as const, value: {} };
+    }
+    if (typeof value !== "object" || Array.isArray(value)) {
+      return { ok: false as const, errors: ["must be an object"] };
+    }
+    const cfg = value as Record<string, unknown>;
+    const errors: string[] = [];
+    const allowedKeys = new Set([
+      "enabled",
+      "pluginsPath",
+      "toolsPath",
+      "baseDir",
+      "provider",
+      "analyzerModel",
+      "teamModel",
+      "teamTimeoutMs",
+      "perTaskMaxUsd",
+      "monthlyMaxUsd",
+    ]);
+    for (const key of Object.keys(cfg)) {
+      if (!allowedKeys.has(key)) {
+        errors.push("must NOT have additional properties");
+        break;
+      }
+    }
+    const stringKeys = [
+      "pluginsPath",
+      "toolsPath",
+      "baseDir",
+      "provider",
+      "analyzerModel",
+      "teamModel",
+    ] as const;
+    for (const key of stringKeys) {
+      if (key in cfg && typeof cfg[key] !== "string") {
+        errors.push(`${key} must be a string`);
+      }
+    }
+    if ("enabled" in cfg && typeof cfg.enabled !== "boolean") {
+      errors.push("enabled must be a boolean");
+    }
+    const numberKeys = ["teamTimeoutMs", "perTaskMaxUsd", "monthlyMaxUsd"] as const;
+    for (const key of numberKeys) {
+      if (key in cfg && (typeof cfg[key] !== "number" || !Number.isFinite(cfg[key] as number))) {
+        errors.push(`${key} must be a finite number`);
+      }
+    }
+    return errors.length > 0 ? { ok: false as const, errors } : { ok: true as const, value: cfg };
+  },
+};
+
 export default {
   id: "vwp-dispatch",
   name: "VWP Dispatch",
   description: "Agent team task dispatch system — analyzes, matches, assembles, and launches teams",
+  configSchema: vwpDispatchConfigSchema,
 
   register(api: OpenClawPluginApi) {
     const pluginCfg = (api.pluginConfig ?? {}) as VwpDispatchPluginConfig;
@@ -77,9 +144,11 @@ export default {
       api.logger.info("vwp-dispatch: disabled by config");
       return;
     }
+    setVwpBaseDir(api.resolvePath(pluginCfg.baseDir ?? "vwp"));
 
     // Initialize skill registry and scan on startup.
     const registry = new SkillRegistry(pluginCfg.pluginsPath);
+    const toolsRoot = resolveToolsPath(pluginCfg.toolsPath);
     const queue = new TaskQueue();
     const health = new HealthMonitor((taskId) => {
       api.logger.warn(`vwp-dispatch: task ${taskId} is stuck, auto-failing`);
@@ -106,7 +175,6 @@ export default {
     // Tool runner for workspace tool execution
     const toolRunner = new ToolRunner({ maxConcurrent: 3 });
     let loadedTools: LoadedTool[] = [];
-    const toolsRoot = join(process.cwd(), "tools");
 
     // Wait for the gateway to finish starting so we know the real port,
     // then create the GatewayClient and connect.
@@ -174,7 +242,9 @@ export default {
     void (async () => {
       try {
         await registry.scan();
-        api.logger.info(`vwp-dispatch: scanned ${registry.getAllSkills().length} skills`);
+        api.logger.info(
+          `vwp-dispatch: scanned ${registry.getAllSkills().length} skills from ${registry.getPluginsPath()}`,
+        );
         registry.watchForChanges();
       } catch (err) {
         api.logger.warn(`vwp-dispatch: skill scan failed: ${String(err)}`);
@@ -202,11 +272,20 @@ export default {
       }
 
       try {
-        loadedTools = await discoverTools(toolsRoot);
-        if (loadedTools.length > 0) {
-          api.logger.info(`vwp-dispatch: discovered ${loadedTools.length} workspace tools`);
+        const toolsDir = await stat(toolsRoot).catch(() => null);
+        if (!toolsDir?.isDirectory()) {
+          api.logger.info(
+            `vwp-dispatch: tools directory not found at ${toolsRoot}; skipping tool discovery`,
+          );
         } else {
-          api.logger.warn("vwp-dispatch: no workspace tools found in tools/ directory");
+          loadedTools = await discoverTools(toolsRoot);
+          if (loadedTools.length > 0) {
+            api.logger.info(
+              `vwp-dispatch: discovered ${loadedTools.length} workspace tools from ${toolsRoot}`,
+            );
+          } else {
+            api.logger.info(`vwp-dispatch: no workspace tools found under ${toolsRoot}`);
+          }
         }
       } catch (err) {
         api.logger.warn(`vwp-dispatch: tool discovery failed: ${String(err)}`);
@@ -217,7 +296,8 @@ export default {
     const gatewayToken =
       api.config.gateway?.auth?.token ?? process.env.OPENCLAW_GATEWAY_TOKEN ?? undefined;
 
-    // Register HTTP handler — delegates to routes.ts.
+    // Register HTTP routes using explicit prefixes instead of the removed
+    // generic registerHttpHandler API.
     const httpHandler = createDispatchHttpHandler({
       queue,
       gatewayToken,
@@ -225,11 +305,19 @@ export default {
         void executeTeam(task);
       },
     });
-    api.registerHttpHandler(httpHandler);
 
     // Register Kanban HTTP handler — delegates to kanban-routes.ts.
     const kanbanHandler = createKanbanHttpHandler({ gatewayToken, agentState });
-    api.registerHttpHandler(kanbanHandler);
+    api.registerHttpRoute({
+      path: "/vwp/dispatch",
+      auth: "plugin",
+      match: "prefix",
+      handler: async (req, res) => {
+        const handled = await httpHandler(req, res);
+        if (handled) return true;
+        return kanbanHandler(req, res);
+      },
+    });
 
     // Tool HTTP routes with real SSE emission
     const toolHandler = createToolHttpHandler({
@@ -238,7 +326,12 @@ export default {
       getTools: () => loadedTools,
       onSSE: (event) => sse.emit(event as any),
     });
-    api.registerHttpHandler(toolHandler);
+    api.registerHttpRoute({
+      path: "/vwp/tools",
+      auth: "plugin",
+      match: "prefix",
+      handler: toolHandler,
+    });
 
     // Chat routes with SSE emission
     const chatStore = new ServerChatStore();
@@ -249,26 +342,45 @@ export default {
       onSSE: (event) => sse.emit(event as any),
       getBackendType: () => detectedBackendType,
     });
-    api.registerHttpHandler(chatHandler);
+    api.registerHttpRoute({
+      path: "/vwp/chat",
+      auth: "plugin",
+      match: "prefix",
+      handler: chatHandler,
+    });
 
     // Shared singleton store for onboarding + team config (avoids double-open on same SQLite file)
-    const vwpDir = join(homedir(), ".openclaw", "vwp");
-    const configStore = new VwpConfigStore(join(vwpDir, "state.sqlite"), {
-      onboardingFile: join(vwpDir, "onboarding.json"),
-      teamFile: join(vwpDir, "team.json"),
+    const configStore = new VwpConfigStore(resolveVwpPath("state.sqlite"), {
+      onboardingFile: resolveVwpPath("onboarding.json"),
+      teamFile: resolveVwpPath("team.json"),
     });
 
     // Onboarding routes
     const onboardingHandler = createOnboardingHttpHandler({ gatewayToken, store: configStore });
-    api.registerHttpHandler(onboardingHandler);
+    api.registerHttpRoute({
+      path: "/vwp/onboarding",
+      auth: "plugin",
+      match: "prefix",
+      handler: onboardingHandler,
+    });
 
     // Team config routes
     const teamHandler = createTeamHttpHandler({ gatewayToken, store: configStore });
-    api.registerHttpHandler(teamHandler);
+    api.registerHttpRoute({
+      path: "/vwp/team",
+      auth: "plugin",
+      match: "prefix",
+      handler: teamHandler,
+    });
 
     // Project registry routes
     const projectHandler = createProjectHttpHandler({ gatewayToken });
-    api.registerHttpHandler(projectHandler);
+    api.registerHttpRoute({
+      path: "/vwp/projects",
+      auth: "plugin",
+      match: "prefix",
+      handler: projectHandler,
+    });
 
     // CoWork agent session routes
     const coworkHandler = createCoworkHttpHandler({
@@ -280,21 +392,43 @@ export default {
         return projects.find((p) => p.id === id) ?? null;
       },
     });
-    api.registerHttpHandler(coworkHandler);
+    api.registerHttpRoute({
+      path: "/vwp/cowork",
+      auth: "plugin",
+      match: "prefix",
+      handler: coworkHandler,
+    });
 
     // Cron REST bridge — exposes gateway cron RPC methods as HTTP endpoints
     const cronHandler = createCronHttpHandler({
       gatewayToken,
       gateway: () => gateway,
     });
-    api.registerHttpHandler(cronHandler);
+    api.registerHttpRoute({
+      path: "/vwp/cron",
+      auth: "plugin",
+      match: "prefix",
+      handler: cronHandler,
+    });
 
     // Usage/sessions/health/config/channels REST bridge
     const usageHandler = createUsageHttpHandler({
       gatewayToken,
       gateway: () => gateway,
     });
-    api.registerHttpHandler(usageHandler);
+    for (const path of ["/vwp/usage", "/vwp/sessions", "/vwp/gateway", "/vwp/channels"] as const) {
+      api.registerHttpRoute({
+        path,
+        auth: "plugin",
+        match: "prefix",
+        handler: usageHandler,
+      });
+    }
+    api.registerHttpRoute({
+      path: "/vwp/health",
+      auth: "plugin",
+      handler: usageHandler,
+    });
 
     // Auto-analyze tasks when they become active in the queue.
     queue.on("task_started", (task: TaskRequest) => {
@@ -471,7 +605,7 @@ export default {
           timestamp: Date.now(),
           type: "artifact",
           title: "Final synthesized result",
-          path: `${join(homedir(), ".openclaw", "vwp", "tasks", task.id, "final.json")}`,
+          path: resolveVwpPath("tasks", task.id, "final.json"),
           description: "Synthesized output from specialist team execution",
         });
 

@@ -3,14 +3,15 @@ import path from "node:path";
 import type { Command } from "commander";
 import type { GatewayAuthMode, GatewayTailscaleMode } from "../../config/config.js";
 import {
-  CONFIG_PATH,
   loadConfig,
   readConfigFileSnapshot,
+  resolveConfigPath,
   resolveStateDir,
   resolveGatewayPort,
 } from "../../config/config.js";
 import { hasConfiguredSecretInput } from "../../config/types.secrets.js";
 import { resolveGatewayAuth } from "../../gateway/auth.js";
+import { canBindToHost, resolveGatewayBindHost } from "../../gateway/net.js";
 import { startGatewayServer } from "../../gateway/server.js";
 import type { GatewayWsLogStyle } from "../../gateway/ws-logging.js";
 import { setGatewayWsLogStyle } from "../../gateway/ws-logging.js";
@@ -272,8 +273,10 @@ async function runGatewayCommand(opts: GatewayRunOpts) {
   const tokenRaw = toOptionString(opts.token);
 
   const snapshot = await readConfigFileSnapshot().catch(() => null);
-  const configExists = snapshot?.exists ?? fs.existsSync(CONFIG_PATH);
-  const configAuditPath = path.join(resolveStateDir(process.env), "logs", "config-audit.jsonl");
+  const stateDir = resolveStateDir(process.env);
+  const configPath = resolveConfigPath(process.env, stateDir);
+  const configExists = snapshot?.exists ?? fs.existsSync(configPath);
+  const configAuditPath = path.join(stateDir, "logs", "config-audit.jsonl");
   const mode = cfg.gateway?.mode;
   if (!opts.allowUnconfigured && mode !== "local") {
     if (!configExists) {
@@ -377,6 +380,13 @@ async function runGatewayCommand(opts: GatewayRunOpts) {
           ...(opts.tailscaleResetOnExit ? { resetOnExit: true } : {}),
         }
       : undefined;
+
+  const customBindHost = toOptionString(cfg.gateway?.customBindHost);
+  const resolvedBindHost = await resolveGatewayBindHost(bind, customBindHost);
+  const bindPreflightOk = await canBindToHost(resolvedBindHost);
+  gatewayLog.info(
+    `startup diagnostics: profile=${process.env.OPENCLAW_PROFILE ?? "default"} stateDir=${stateDir} configPath=${configPath} bind=${bind} resolvedHost=${resolvedBindHost} port=${port} bindPreflight=${bindPreflightOk ? "ok" : "failed"}`,
+  );
 
   try {
     await runGatewayLoop({

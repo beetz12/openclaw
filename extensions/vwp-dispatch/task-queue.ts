@@ -5,9 +5,8 @@
 
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { atomicWriteFile } from "./atomic-write.js";
+import { resolveVwpPath } from "./paths.js";
 import type { TaskRequest } from "./types.js";
 
 type QueueEvent = "task_queued" | "task_started" | "task_completed" | "task_cancelled";
@@ -16,9 +15,6 @@ interface QueueState {
   active: TaskRequest | null;
   pending: TaskRequest[];
 }
-
-const BASE_DIR = join(homedir(), ".openclaw", "vwp");
-const QUEUE_FILE = join(BASE_DIR, "queue.json");
 
 export class TaskQueue extends EventEmitter {
   private active: TaskRequest | null = null;
@@ -90,7 +86,7 @@ export class TaskQueue extends EventEmitter {
 
   async load(): Promise<void> {
     try {
-      const raw = await readFile(QUEUE_FILE, "utf-8");
+      const raw = await readFile(resolveVwpPath("queue.json"), "utf-8");
       const state: QueueState = JSON.parse(raw);
       this.active = state.active;
       this.pending = state.pending ?? [];
@@ -103,6 +99,6 @@ export class TaskQueue extends EventEmitter {
 
   private async persist(): Promise<void> {
     const state: QueueState = { active: this.active, pending: this.pending };
-    await atomicWriteFile(QUEUE_FILE, JSON.stringify(state, null, 2));
+    await atomicWriteFile(resolveVwpPath("queue.json"), JSON.stringify(state, null, 2));
   }
 }

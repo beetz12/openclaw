@@ -10,12 +10,10 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { ApprovalSSE } from "../vwp-approval/sse.js";
 import type { KanbanSSEEvent } from "./kanban-types.js";
-
-const TASKS_BASE = join(homedir(), ".openclaw", "vwp", "tasks");
+import { getVwpTasksDir } from "./paths.js";
 
 export type ProgressHandler = (event: KanbanSSEEvent) => void;
 
@@ -30,7 +28,7 @@ export class TeamMonitor {
 
   constructor(taskId: string, sse?: ApprovalSSE) {
     this.taskId = taskId;
-    this.taskDir = join(TASKS_BASE, taskId);
+    this.taskDir = join(getVwpTasksDir(), taskId);
     this.sse = sse;
   }
 

@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { resolveVwpPath } from "./paths.js";
 import { parseFrontmatter } from "./skill-registry.ts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -33,7 +32,6 @@ export type BusinessContext = {
 
 // ── Default profile path ────────────────────────────────────────────────────
 
-const DEFAULT_PROFILE_PATH = join(homedir(), ".openclaw", "vwp", "profile.json");
 const DEFAULT_CONTEXT_BUDGET = 2000;
 
 // ── Profile loading ─────────────────────────────────────────────────────────
@@ -43,7 +41,7 @@ const DEFAULT_CONTEXT_BUDGET = 2000;
  * Returns an empty profile if the file doesn't exist.
  */
 export async function loadProfile(profilePath?: string): Promise<BusinessProfile> {
-  const path = profilePath ?? DEFAULT_PROFILE_PATH;
+  const path = profilePath ?? resolveVwpPath("profile.json");
   try {
     const raw = await readFile(path, "utf-8");
     return JSON.parse(raw) as BusinessProfile;

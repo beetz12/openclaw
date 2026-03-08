@@ -12,15 +12,17 @@
 
 import { readFile, realpath, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { atomicWriteFile } from "./atomic-write.js";
+import { resolveVwpPath } from "./paths.js";
 import { getBearerToken, safeEqualSecret } from "./upstream-imports.js";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
-const VWP_DIR = join(homedir(), ".openclaw", "vwp");
-const PROJECTS_FILE = join(VWP_DIR, "projects.json");
+
+function getProjectsFile(): string {
+  return resolveVwpPath("projects.json");
+}
 
 // --- Zod schemas ---
 
@@ -154,7 +156,7 @@ function jsonResponse(res: ServerResponse, status: number, body: unknown): void 
 // --- Storage helpers ---
 
 export async function loadProjects(filePath?: string): Promise<Project[]> {
-  const target = filePath ?? PROJECTS_FILE;
+  const target = filePath ?? getProjectsFile();
   try {
     const raw = await readFile(target, "utf-8");
     const data = JSON.parse(raw);
@@ -177,7 +179,7 @@ export type ProjectRegistryDeps = {
 
 export function createProjectHttpHandler(deps: ProjectRegistryDeps, projectsFilePath?: string) {
   const { gatewayToken } = deps;
-  const filePath = projectsFilePath ?? PROJECTS_FILE;
+  const filePath = projectsFilePath ?? getProjectsFile();
 
   function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
     const token = getBearerToken(req);

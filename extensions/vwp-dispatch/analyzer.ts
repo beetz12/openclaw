@@ -7,12 +7,11 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { buildAnalysisInvocation } from "./cli-provider.js";
 import type { BusinessContext } from "./context-loader.js";
 import { enrichDecomposition, formatEnrichmentPrompt } from "./memory/memory-enrichment.js";
 import { createMemoryClient, type MemoryClient } from "./memory/notebooklm-client.js";
+import { resolveVwpPath } from "./paths.js";
 import { sanitizeTaskText } from "./sanitize.js";
 import type { TeamConfig, TeamMember } from "./team-types.js";
 import type { TaskDecomposition } from "./types.js";
@@ -225,7 +224,7 @@ export async function assignTeamMembers(
   decomposition: TaskDecomposition,
   teamConfigPath?: string,
 ): Promise<AssignedDecomposition> {
-  const configPath = teamConfigPath ?? join(homedir(), ".openclaw", "vwp", "team.json");
+  const configPath = teamConfigPath ?? resolveVwpPath("team.json");
 
   let members: TeamMember[] = [];
   try {
