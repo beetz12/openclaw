@@ -49,6 +49,8 @@ export async function runCliAgent(params: {
   streamParams?: import("../commands/agent/types.js").AgentStreamParams;
   ownerNumbers?: string[];
   cliSessionId?: string;
+  bootstrapPromptWarningSignaturesSeen?: string[];
+  bootstrapPromptWarningSignature?: string;
   images?: ImageContent[];
   lane?: string;
 }): Promise<EmbeddedPiRunResult> {

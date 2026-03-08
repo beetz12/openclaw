@@ -30,8 +30,8 @@ import {
 } from "../../auth-rate-limit.js";
 import type { GatewayAuthResult, ResolvedGatewayAuth } from "../../auth.js";
 import { authorizeGatewayConnect, isLocalDirectRequest } from "../../auth.js";
-import { buildDeviceAuthPayload } from "../../device-auth.js";
-import { isLoopbackAddress, isTrustedProxyAddress, resolveGatewayClientIp } from "../../net.js";
+import { buildDeviceAuthPayload, buildDeviceAuthPayloadV3 } from "../../device-auth.js";
+import { isLoopbackAddress, isTrustedProxyAddress, resolveClientIp } from "../../net.js";
 import { resolveHostName } from "../../net.js";
 import { resolveNodeCommandAllowlist } from "../../node-command-policy.js";
 import { checkBrowserOrigin } from "../../origin-check.js";
@@ -132,7 +132,7 @@ export function attachGatewayWsMessageHandler(params: {
 
   const configSnapshot = loadConfig();
   const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
-  const clientIp = resolveGatewayClientIp({ remoteAddr, forwardedFor, realIp, trustedProxies });
+  const clientIp = resolveClientIp({ remoteAddr, forwardedFor, realIp, trustedProxies });
 
   // If proxy headers are present but the remote address isn't trusted, don't treat
   // the connection as local. This prevents auth bypass when running behind a reverse
@@ -513,7 +513,7 @@ export function attachGatewayWsMessageHandler(params: {
             close(1008, "device nonce mismatch");
             return;
           }
-          const payload = buildDeviceAuthPayload({
+          const basePayloadParams = {
             deviceId: device.id,
             clientId: connectParams.client.id,
             clientMode: connectParams.client.mode,
@@ -521,9 +521,8 @@ export function attachGatewayWsMessageHandler(params: {
             scopes,
             signedAtMs: signedAt,
             token: connectParams.auth?.token ?? null,
-            nonce: providedNonce || undefined,
-            version: providedNonce ? "v2" : "v1",
-          });
+            nonce: providedNonce,
+          };
           const rejectDeviceSignatureInvalid = () => {
             setHandshakeState("failed");
             setCloseCause("device-auth-invalid", {
@@ -539,18 +538,21 @@ export function attachGatewayWsMessageHandler(params: {
             });
             close(1008, "device signature invalid");
           };
-          const signatureOk = verifyDeviceSignature(device.publicKey, payload, device.signature);
+          // Try v3 first (includes platform/deviceFamily), then v2, then legacy v1
+          const v3Payload = buildDeviceAuthPayloadV3({
+            ...basePayloadParams,
+            platform: connectParams.client.platform,
+            deviceFamily: connectParams.client.deviceFamily,
+          });
+          const v2Payload = buildDeviceAuthPayload(basePayloadParams);
+          const signatureOk =
+            verifyDeviceSignature(device.publicKey, v3Payload, device.signature) ||
+            verifyDeviceSignature(device.publicKey, v2Payload, device.signature);
           const allowLegacy = !nonceRequired && !providedNonce;
           if (!signatureOk && allowLegacy) {
             const legacyPayload = buildDeviceAuthPayload({
-              deviceId: device.id,
-              clientId: connectParams.client.id,
-              clientMode: connectParams.client.mode,
-              role,
-              scopes,
-              signedAtMs: signedAt,
-              token: connectParams.auth?.token ?? null,
-              version: "v1",
+              ...basePayloadParams,
+              nonce: "",
             });
             if (verifyDeviceSignature(device.publicKey, legacyPayload, device.signature)) {
               // accepted legacy loopback signature
