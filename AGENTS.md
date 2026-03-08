@@ -162,6 +162,17 @@
 
 - Rebrand/migration issues or legacy config/service warnings: run `openclaw doctor` (see `docs/gateway/doctor.md`).
 
+## Post-Merge Recovery
+
+After rebasing/merging upstream openclaw, the build or runtime may break. Common issues and fixes:
+
+- **Missing dependencies**: If `pnpm build` fails with `Cannot find module 'X'`, run `pnpm add -w X`. Known examples from past syncs: `ipaddr.js`, `long`.
+- **Upstream API removals**: When build fails with missing exports/types (e.g. `"X is not exported from 'Y'"`), search upstream `src/plugins/` for the new name. Define types locally in the extension if removed entirely.
+- **`--theirs` file inspection**: Files accepted with `git checkout --theirs` may reference old function names (e.g. `resolveGatewayClientIp` renamed to `resolveClientIp`). Always grep for stale imports after merge.
+- **Plugin data directories**: Plugins using file storage must call `fs.mkdirSync(dir, { recursive: true })` before opening databases. The framework does NOT auto-create plugin data dirs. Symptom: `ENOENT` on SQLite open.
+- **Device auth version mismatch**: If client sends v3 auth payloads, `src/gateway/server/ws-connection/message-handler.ts` must verify v3 (not just v1/v2). Symptom: "device signature invalid" on TUI connect after upgrade.
+- **Expected conflict files** (update this list after each sync): `src/config/types.agent-defaults.ts` (merge both sides), `src/gateway/server/ws-connection/message-handler.ts` (inspect — verify imports match current upstream).
+
 ## Agent-Specific Notes
 
 - Vocabulary: "makeup" = "mac app".
@@ -176,6 +187,7 @@
 - CLI progress: use `src/cli/progress.ts` (`osc-progress` + `@clack/prompts` spinner); don’t hand-roll spinners/bars.
 - Status output: keep tables + ANSI-safe wrapping (`src/terminal/table.ts`); `status --all` = read-only/pasteable, `status --deep` = probes.
 - Gateway currently runs only as the menubar app; there is no separate LaunchAgent/helper label installed. Restart via the OpenClaw Mac app or `scripts/restart-mac.sh`; to verify/kill use `launchctl print gui/$UID | grep openclaw` rather than assuming a fixed label. **When debugging on macOS, start/stop the gateway via the app, not ad-hoc tmux sessions; kill any temporary tunnels before handoff.**
+- Cron workers that need shell or file execution must not inherit a local/global `tools.profile: "messaging"` setting. Set an agent-level override such as `agents.list[].tools.profile: "coding"` for those cron agents, or they will start without `exec`/edit tools and fail with "no shell/exec tool access" style errors before doing any work.
 - macOS logs: use `./scripts/clawlog.sh` to query unified logs for the OpenClaw subsystem; it supports follow/tail/category filters and expects passwordless sudo for `/usr/bin/log`.
 - If shared guardrails are available locally, review them; otherwise follow this repo's guidance.
 - SwiftUI state management (iOS/macOS): prefer the `Observation` framework (`@Observable`, `@Bindable`) over `ObservableObject`/`@StateObject`; don’t introduce new `ObservableObject` unless required for compatibility, and migrate existing usages when touching related code.
