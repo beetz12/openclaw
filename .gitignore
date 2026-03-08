@@ -89,6 +89,26 @@ USER.md
 # local tooling
 .serena/
 
+# Local VWP/dev artifacts
+.playwright-mcp/
+.vwp-logs/
+apps/vwp-board/.env.local
+apps/vwp-board/.next/
+apps/vwp-board/out/
+apps/vwp-board/playwright-report/
+apps/vwp-board/test-results/
+extensions/vwp-dispatch/.test-onboarding-fixtures/
+extensions/vwp-dispatch/.test-team-config-fixtures/
+output/
+vwp-approval.sqlite
+
+# Root-level local verification screenshots
+chat-*.png
+e2e-*.png
+mission-control-initial.png
+test-*.png
+vwp-test-*.png
+
 # Agent credentials and memory (NEVER COMMIT)
 /memory/
 .agent/*.json
