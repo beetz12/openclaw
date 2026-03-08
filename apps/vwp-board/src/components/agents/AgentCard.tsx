@@ -17,6 +17,7 @@ interface AgentCardProps {
 export function AgentCard({ agent, onTaskClick }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
   const style = STATUS_STYLES[agent.status];
+  const taskId = agent.taskId;
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
@@ -30,13 +31,13 @@ export function AgentCard({ agent, onTaskClick }: AgentCardProps) {
       </div>
 
       {/* Task link */}
-      {agent.taskId && (
+      {taskId && (
         <button
           type="button"
-          onClick={() => onTaskClick?.(agent.taskId)}
+          onClick={() => onTaskClick?.(taskId)}
           className="mt-1.5 text-xs text-[var(--color-primary)] hover:underline truncate block w-full text-left"
         >
-          Task: {agent.taskId.slice(0, 8)}...
+          Task: {taskId.slice(0, 8)}...
         </button>
       )}
 

@@ -6,6 +6,8 @@ import type {
   KanbanTask,
   BoardState,
   AgentInfo,
+  ToolRunInfo,
+  ToolRunStatus,
 } from "@/types/kanban";
 import { kanbanApi } from "@/lib/api-client";
 
@@ -51,7 +53,16 @@ export type KanbanSSEEvent =
   | { type: "agent_disconnected"; agentId: string }
   | { type: "agent_log"; agentId: string; taskId: string; message: string; timestamp: number }
   | { type: "gateway_status"; connected: boolean }
-  | { type: "tool_run_started"; run: { runId: string; toolName: string; toolLabel: string; status: string; startedAt: number } }
+  | {
+      type: "tool_run_started";
+      run: {
+        runId: string;
+        toolName: string;
+        toolLabel: string;
+        status: ToolRunStatus;
+        startedAt: number;
+      };
+    }
   | { type: "tool_run_output"; runId: string; stream: "stdout" | "stderr"; chunk: string }
   | { type: "tool_run_completed"; runId: string; exitCode: number }
   | { type: "tool_run_failed"; runId: string; error: string }
@@ -69,6 +80,18 @@ const EMPTY_COLUMNS: Record<KanbanColumnId, KanbanTask[]> = {
   review: [],
   done: [],
 };
+
+type ToolRunStartedEvent = Extract<KanbanSSEEvent, { type: "tool_run_started" }>;
+
+function toToolRunInfo(run: ToolRunStartedEvent["run"]): ToolRunInfo {
+  return {
+    ...run,
+    args: {},
+    completedAt: null,
+    exitCode: null,
+    error: null,
+  };
+}
 
 export interface BoardStore {
   // State
@@ -369,10 +392,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         set({ gatewayConnected: event.connected });
         break;
       case "tool_run_started": {
+        const startedRun = toToolRunInfo(event.run);
         set((state) => ({
           toolRuns: [
-            ...state.toolRuns.filter((r) => r.runId !== event.run.runId),
-            event.run,
+            ...state.toolRuns.filter((r) => r.runId !== startedRun.runId),
+            startedRun,
           ],
         }));
         break;
