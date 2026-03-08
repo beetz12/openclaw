@@ -73,9 +73,27 @@ Record every manual conflict decision here before continuing a replay:
 
 Record every verification step here:
 
-| Date       | Scope           | Command            | Result | Notes                                                                         |
-| ---------- | --------------- | ------------------ | ------ | ----------------------------------------------------------------------------- |
-| 2026-03-08 | Source baseline | `pnpm build`       | pass   | Verified local `main` before starting the integration branch.                 |
-| 2026-03-08 | Wave A          | `bd doctor --json` | pass   | Confirmed the Beads state after bootstrap replay.                             |
-| 2026-03-08 | Wave B          | `pnpm install`     | pass   | Installed missing integration-branch dependencies before replay verification. |
-| 2026-03-08 | Wave B          | `pnpm build`       | pass   | Build is clean after restoring branch-compatible plugin and gateway code.     |
+| Date       | Scope           | Command                                                                               | Result | Notes                                                                                                              |
+| ---------- | --------------- | ------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| 2026-03-08 | Source baseline | `pnpm build`                                                                          | pass   | Verified local `main` before starting the integration branch.                                                      |
+| 2026-03-08 | Wave A          | `bd doctor --json`                                                                    | pass   | Confirmed the Beads state after bootstrap replay.                                                                  |
+| 2026-03-08 | Wave B          | `pnpm install`                                                                        | pass   | Installed missing integration-branch dependencies before replay verification.                                      |
+| 2026-03-08 | Wave B          | `pnpm build`                                                                          | pass   | Build is clean after restoring branch-compatible plugin and gateway code.                                          |
+| 2026-03-08 | VWP follow-up   | `pnpm --dir apps/vwp-board test:e2e -- e2e/navigation.spec.ts e2e/responsive.spec.ts` | pass   | Updated the Playwright selectors to scope desktop and mobile nav containers and removed brittle layout assertions. |
+
+## Landing Summary
+
+- `origin/main` was updated to commit `9c790b268` from the validated integration branch.
+- Local `main` was then realigned to the new remote baseline and the prior divergent source tip was preserved at `backup/source-main-20260308-045612`.
+- Follow-up coverage drift on the VWP board nav tests was fixed later on `main` in commit `78b46a435`.
+
+## Deferred Work
+
+- `openclaw-2r1.12` remains intentionally deferred. It covers older VWP feature waves that should be replayed as bounded vertical slices rather than as one large catch-up batch.
+- Any future replay should start from the now-clean `main` baseline, choose one feature slice at a time, and verify that slice independently before moving to the next.
+
+## Future Work Guidance
+
+1. Start from `main`, not from the preserved divergent backup ref.
+2. Use the backup ref only as a source for selective cherry-picks or diff review.
+3. Keep conflict decisions and per-wave verification in this log as additional slices are landed.
