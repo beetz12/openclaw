@@ -89,8 +89,10 @@ Record every verification step here:
 
 ## Deferred Work
 
-- `openclaw-2r1.12` remains intentionally deferred. It covers older VWP feature waves that should be replayed as bounded vertical slices rather than as one large catch-up batch.
-- Any future replay should start from the now-clean `main` baseline, choose one feature slice at a time, and verify that slice independently before moving to the next.
+- `openclaw-2r1.12` was later reviewed against the cleaned `main` baseline on 2026-03-09.
+- That review found the previously deferred VWP slices were already present or superseded on `main`, including the Gemini voice chat, CoWork flow, desktop wrapper hooks, and the broader Mission Control board surface.
+- No additional cherry-pick replay was required from the preserved divergent history for those slices.
+- Follow-up verification bug `openclaw-11v` tracks a separate missing `strip-ansi` dependency that currently blocks targeted `extensions/vwp-dispatch` CoWork Vitest suites.
 
 ## Future Work Guidance
 
