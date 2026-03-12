@@ -713,7 +713,6 @@ export function attachGatewayWsMessageHandler(params: {
             nonce: providedNonce,
           });
           if (!payloadVersion) {
-          if (!payloadVersion) {
             rejectDeviceSignatureInvalid();
             return;
           }
